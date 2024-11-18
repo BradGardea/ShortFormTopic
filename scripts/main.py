@@ -5,7 +5,7 @@ import threading
 from reddit import run_scrapers
 # from eleven_labs import get_tts, get_timings
 from azure_synth import get_tts
-from video_generator import select_and_trim_videos, combine_audio_and_video, get_audio_duration, create_combined_video_for_post
+from video_generator import create_combined_video_for_post
 import pandas as pd
 import os
 
@@ -32,10 +32,10 @@ def generate_tts_for_post(post, tts_folder_name):
     
     try:
         # Generate TTS for the title
-        title_path, timings_title = get_tts(title, f"data/TTS/{tts_folder_name}", "title.mp3")
+        title_path, timings_title = get_tts(title, f"data/TTS/{tts_folder_name}", "title.mp3", speech_rate=1)
         
         # Generate TTS for the content
-        content_path, timings_content = get_tts(content, f"data/TTS/{tts_folder_name}", "content.mp3")
+        content_path, timings_content = get_tts(content, f"data/TTS/{tts_folder_name}", "content.mp3", speech_rate=1)
         
         logging.info(f"TTS generation successful for post: {title}")
         return (title_path, timings_title, post['title']), (content_path, timings_content, post['content'])
@@ -82,10 +82,11 @@ def main():
                 
                 if title is not None and content is not None:
                     # Mark the post as generated
-                    update_post_as_generated(post['id'])
 
                     # Create a combined video for the post
-                    create_combined_video_for_post(post, title, content)
+                    if (create_combined_video_for_post(post, title, content) != None):
+                        update_post_as_generated(post['id'])
+
                 else:
                     logging.error(f"Failed to generate TTS for post: {post['title']}")
             else:

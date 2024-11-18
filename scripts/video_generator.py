@@ -5,39 +5,12 @@ import random
 import os
 import logging
 from datetime import timedelta
+import numpy as np
 
 
 def blur(clip, sigma):
     return clip.fl_image(lambda image: gaussian_filter(image, sigma=sigma), apply_to=['mask'])
 
-def create_text_overlay_clips(word_timestamps, duration):
-    """
-    Generate text overlay clips based on word timings.
-    Each word appears at its specified offset for its duration.
-    """
-    text_clips = []
-    for word_info in word_timestamps:
-        text = word_info['text']
-        start_time = word_info['offset'] / 1000  # Convert to seconds
-        word_duration = word_info['duration'].microseconds / 100 # Convert timedelta to seconds
-        change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
-
-        # Create a text clip that appears at the center of the screen
-        text_clip = TextClip(text, fontsize=80, color='white', filename="C:\\Windows\\Fonts\\impact.ttf", method="caption", align="center")
-        text_clip = text_clip.set_start(start_time)
-        text_clip = text_clip.set_position(('center', 'center'))
-        text_clip = text_clip.set_duration(word_duration)
-                     
-        shadow = text_clip.copy()
-        shadow = shadow.set_position(('center', 'center'))
-        shadow.color = 'black'
-        shadow = blur(shadow, sigma=5)
-        # composite = CompositeVideoClip([shadow.set_position(('center', 'center')), text_clip.set_position(('center', 'center'))]).set_position(('center', 'center'))
-        composite = CompositeVideoClip([shadow, text_clip]).set_position(('center', 'center'))
-
-        text_clips.append(composite)
-    
-    return text_clips
 
 def merge_special_characters(word_timestamps, original_text):
     """
@@ -60,12 +33,13 @@ def merge_special_characters(word_timestamps, original_text):
     for split_word in split_words:
         merged_text = ""
         merged_start = None
-        merged_duration = timedelta(0)
+        merged_duration = 0
         
         # Combine entries from word_timestamps to match the split word
         while current_index < len(word_timestamps) and len(merged_text) < len(split_word):
             current_word_info = word_timestamps[current_index]
             word_text = current_word_info['text']
+            current_word_info['duration'] = current_word_info['duration'].microseconds
 
             # Check if current word_text has multiple words (split by spaces)
             word_parts = word_text.split()
@@ -113,41 +87,98 @@ def merge_special_characters(word_timestamps, original_text):
 
     return merged_timestamps
 
-def create_text_clips(word_timestamps, original_text):
-    """Create text clips from timestamps."""
-    merged_word_timestamps = merge_special_characters(word_timestamps, original_text)
-    if merged_word_timestamps == None:
-        return None
-    text_clips = []
-    
-    for word_info in merged_word_timestamps:
-        text = word_info['text']
-        start_time = word_info['offset'] / 1000  # Convert to seconds
-        word_duration = word_info['duration'].microseconds / 90
-        print(f"Adding text: {text} from {start_time} to {start_time + word_duration}")
-        change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
-        # Create a text clip that appears at the center of the screen
-        text_clip = TextClip(text, fontsize=150, color='white', filename=r"C:\Users\brad8\AppData\Local\Microsoft\Windows\Fonts\TooneyNoodleNF.ttf", method="caption", align="center")
-        text_clip = text_clip.set_start(start_time)
-        text_clip = text_clip.set_position(('center', 'center'))
-        text_clip = text_clip.set_duration(word_duration)
-                     
-        # # Create a shadow effect
-        # shadow = TextClip(text, fontsize=100, color='black', font="C:\\Windows\\Fonts\\impact.ttf", method="caption", align="center")
-        # shadow = text_clip.set_start(start_time)
-        # shadow = text_clip.set_position(('center', 'center'))
-        # shadow = text_clip.set_duration(word_duration)
-        # shadow = blur(shadow, sigma=5)
-        
-        # # Create composite clip with text and shadow
-        # composite = CompositeVideoClip([shadow, text_clip]).set_position(('center', 'center'))
-        # composite.start = start_time
-        # composite.duration = word_duration
-        # text_clips.append(composite)
 
-        text_clips.append(text_clip)
-    
+def get_random_color_combination():
+    """Return a random complementary color combination."""
+    color_combinations = [
+        ('DeepSkyBlue', 'DarkOrange'), 
+        ('LimeGreen', 'Purple'), 
+        ('Magenta', 'Lime'),
+        ('Crimson', 'Aqua'),
+        ('Gold', 'RoyalBlue'), 
+        ('DodgerBlue', 'Tomato'),
+        ('HotPink', 'SpringGreen'), 
+        ('OrangeRed', 'Cyan'),
+        ('YellowGreen', 'MediumOrchid'), 
+        ('Firebrick', 'LightSkyBlue'),
+        ('PaleVioletRed', 'Teal'), 
+        ('DarkOliveGreen', 'LightCoral'),
+        ('SlateBlue', 'Goldenrod'), 
+        ('DarkSlateGray', 'LightGoldenrod'),
+        ('SeaGreen', 'Orchid'), 
+        ('Salmon', 'DarkTurquoise'),
+        ('Orange', 'DeepSkyBlue1'), 
+        ('ForestGreen', 'LightPink'),
+        ('DarkMagenta', 'Chartreuse'), 
+        ('MediumSeaGreen', 'Violet')
+    ]
+    return random.choice(color_combinations)
+
+import random
+from moviepy.editor import TextClip
+
+def create_text_clips(word_timestamps, original_text, text_color, stroke_color):
+    """
+    Create text clips from timestamps with special effects.
+    Ensure each clip has a minimum duration of 0.4 seconds by combining words if necessary.
+    """
+    merged_word_timestamps = merge_special_characters(word_timestamps, original_text)
+    if merged_word_timestamps is None:
+        return None
+
+    text_clips = []
+    i = 0
+    total_words = len(merged_word_timestamps)
+
+    while i < total_words:
+        # Initialize variables for collecting words
+        text_fragment = []
+        start_time = merged_word_timestamps[i]['offset'] / 1_000_000  # Convert to seconds
+        word_start_time = start_time
+        combined_duration = 0.0
+        
+        # Collect words until the combined duration is at least 0.4 seconds
+        while i < total_words and combined_duration < 0.4:
+            word_info = merged_word_timestamps[i]
+            word = word_info['text']
+            text_fragment.append(word)
+
+            # Update the duration for the current group of words
+            current_word_duration = word_info['duration'] / 1_000_000
+            combined_duration += current_word_duration
+            
+            i += 1
+
+        # Combine the collected words into a single string
+        combined_text = ' '.join(text_fragment)
+
+        # Create the TextClip with specified colors and font settings
+        change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
+        text_clip = TextClip(
+            combined_text,
+            fontsize=120,
+            stroke_color=stroke_color,
+            stroke_width=3,
+            color=text_color,
+            font="Trueno_bold",
+            method="label",
+            kerning=-1,
+            # size=(1080, 200)  # Adjusted size for better visibility
+        )
+
+        # Apply the zoom-in effect (starts at 50% size and grows to full size)
+        text_clip = text_clip.set_start(word_start_time)
+        text_clip = text_clip.set_position(('center', 'center'))
+        text_clip = text_clip.set_duration(combined_duration)
+
+        # Add the zoom-in jump effect (starts at 50% size and grows to full size)
+        zoomed_clip = text_clip.resize(lambda t: 0.1 + 0.5 * (t / text_clip.duration)).crossfadein(0.4)
+
+        # Append the created clip to the list
+        text_clips.append(zoomed_clip)
+
     return text_clips
+
 
 def get_audio_duration(audio_file):
     """ Get the duration of the audio file in seconds using MoviePy. """
@@ -163,8 +194,64 @@ def loop_video_clip(video_clip, min_duration=30):
     loop_count = int(min_duration // video_duration) + 1
     return concatenate_videoclips([video_clip] * loop_count).subclip(0, min_duration)
 
+def calculate_black_pixel_percentage(frame, rgb_threshold=(0, 0, 0)):
+    """
+    Calculate the percentage of purely black pixels in a given frame.
+
+    Parameters:
+        frame (numpy.ndarray): The frame image (RGB format).
+        rgb_threshold (tuple): The RGB intensity threshold to consider a pixel as black.
+
+    Returns:
+        float: The percentage of purely black pixels in the frame.
+    """
+    # Check for purely black pixels by comparing each RGB channel to the threshold
+    black_pixels = np.all(frame < rgb_threshold, axis=2)
+    total_pixels = frame.shape[0] * frame.shape[1]
+    black_pixel_count = np.sum(black_pixels)
+
+    return (black_pixel_count / total_pixels) * 100
+
+def video_has_too_many_black_pixels(video_clip, max_frames=10, threshold=20, moving_avg_window=5):
+    """
+    Check if a video has too many black pixels using a moving average.
+
+    Parameters:
+        video_clip (VideoFileClip): The video clip to analyze.
+        max_frames (int): Number of frames to analyze.
+        threshold (float): Percentage threshold of black pixels to reject the video.
+        moving_avg_window (int): Window size for moving average.
+
+    Returns:
+        bool: True if the video has too many black pixels, otherwise False.
+    """
+    frame_count = 0
+    black_pixel_percentages = []
+
+    for frame in video_clip.iter_frames():
+        if frame_count >= max_frames:
+            break
+        
+        # Calculate the percentage of black pixels in the current frame
+        black_pixel_percentage = calculate_black_pixel_percentage(frame)
+        black_pixel_percentages.append(black_pixel_percentage)
+
+        # Check moving average
+        if len(black_pixel_percentages) >= moving_avg_window:
+            moving_avg = np.mean(black_pixel_percentages[-moving_avg_window:])
+            if moving_avg > threshold:
+                return True  # Reject this video
+
+        frame_count += 1
+
+    return False
+
+
 def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos"):
-    """ Select random videos from 'loops' and 'regular' folders and trim them to fit the needed duration. """
+    """ 
+    Select random videos from 'loops' and 'regular' folders, checking for black pixel content, 
+    and trim them to fit the needed duration.
+    """
     # Get all video files from both 'loops' and 'regular' folders
     video_files = []
     for subfolder in ['loops', 'regular']:
@@ -176,12 +263,13 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
     
     selected_videos = []
     total_duration = 0
-    
+
     while total_duration < duration_needed and video_files:
         max_checks = 100
         curr_checks = 0
         video_clip = None
-        while video_clip == None:
+
+        while video_clip is None:
             if curr_checks >= max_checks:
                 return None
             else:
@@ -189,19 +277,26 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
                     video_file = random.choice(video_files)
                     video_clip = VideoFileClip(video_file)
                     video_duration = video_clip.duration
-                    # w, h = video_clip.size
-                    # if w + 75 < 1080 or h + 140 < 1920:
-                    #     #TODO: remove small videos
-                    #     logging.info(f"Video too small ({video_clip.size})")
-                    #     video_clip = None
-                except:
-                    video_files.remove(video_file)
+                    
+                    # Check for too many black pixels
+                    if video_has_too_many_black_pixels(video_clip):
+                        logging.info(f"Video '{video_file}' rejected due to high black pixel content.")
+                        # video_files.remove(video_file)
+                        video_clip = None
+                        continue
+                    logging.info(f"Video '{video_file}' selected.")
+
+
+                except Exception as e:
+                    logging.error(f"Error processing video '{video_file}': {e}")
+                    #video_files.remove(video_file)
                     video_clip = None
+
                 curr_checks += 1
 
         # Check if the video is from the 'loops' folder and loop it if it's less than 30 seconds
         if 'loops' in video_file and video_duration < 30:
-            video_clip = loop_video_clip(video_clip, min_duration=30)
+            video_clip = loop_video_clip(video_clip, 40)
             video_duration = video_clip.duration
 
         if total_duration + video_duration <= duration_needed:
@@ -229,48 +324,54 @@ def combine_audio_and_video(title_audio_file, content_audio_file, video_clips, t
     
     # Calculate total audio duration
     total_duration = combined_audio.duration
+
+    background_audio_clip = AudioFileClip("data/background_audio.mp3")
+    background_audio_looped = concatenate_audioclips([background_audio_clip] * int(total_duration // background_audio_clip.duration + 1))
+    background_audio_looped = background_audio_looped.subclip(0, total_duration).volumex(0.2)  # Lower the volume of background music
+    final_audio = CompositeAudioClip([combined_audio, background_audio_looped])
+
     
+    text_color, stroke_color = get_random_color_combination()
+
     # Generate text overlays
-    title_text_clips = create_text_clips(title_timings, title_text)
-    content_text_clips = create_text_clips(content_timings, content_text)
-    if title_text == None or content_text_clips == None:
+    title_text_clips = create_text_clips(title_timings, title_text, text_color, stroke_color)
+    if title_text == None:
+        return None
+    content_text_clips = create_text_clips(content_timings[: 100], content_text[:100], text_color, stroke_color)
+    if content_text_clips == None:
         return None
 
+    
+    new_clips = []
+    for clip in video_clips:
+        (w, h) = clip.size
+        clip = clip.resize(height=1920)
+        logging.info(f"Resized clip size: {clip.w}x{clip.h}")
+        adjusted_center = ((1920 / h) * w) / 2
+        new_clip = clip.crop(x_center=adjusted_center, y_center=960, width=1080, height=1920)
+        new_clips.append(new_clip)
+        logging.info(f"Cropped clip size: {new_clip.w}x{new_clip.h}")
+
+
+    final_video = concatenate_videoclips(new_clips).set_duration(total_duration)
+
+    title_clip = concatenate_videoclips(title_text_clips, method="compose")
+    content_clip = concatenate_videoclips(content_text_clips, method="compose")
     if title_text_clips:
         last_title_clip_end = title_text_clips[-1].end
     else:
         last_title_clip_end = 0
 
     title_audio_end = title_audio_clip.duration
-    gap_duration = max(0, title_audio_end - last_title_clip_end)
-    
-    content_offset = title_audio_clip.duration + gap_duration
-    for clip in content_text_clips:
-        clip = clip.set_start(clip.start + content_offset)
-        print(f"Content start time:{clip.start}  | ")
-    
-    final_video = concatenate_videoclips(video_clips, method="compose").set_duration(total_duration)
-    (w, h) = final_video.size
-    final_video = final_video.resize(height=1920)
-    logging.info(f"New video size: {final_video.w}x{final_video.h}")
-    adjusted_center = ((1920 / h) * w) / 2
-    final_video = final_video.crop(x_center=adjusted_center, y_center=960, width=1080, height=1920)
-    
-    title_clip = concatenate_videoclips(title_text_clips, method="compose")
-    content_clip = concatenate_videoclips(content_text_clips, method="compose")
-    text_clip = concatenate_videoclips([title_clip, content_clip], method="chain").set_position(('center', 'center'))
+    gap_duration = max(0, title_audio_end - last_title_clip_end) * 4
+    content_clip.set_start(content_clip.start + gap_duration)
+    text_clip = concatenate_videoclips([title_clip, content_clip], method="compose").set_position(('center', 'center'))
 
+    composite_video = CompositeVideoClip([final_video, text_clip]).set_position(('center', 'center'))
 
-    composite_video = CompositeVideoClip([final_video, text_clip], use_bgclip=True).set_position(('center', 'center'))
-
-    # Set the combined audio to the final video
-    composite_video = composite_video.set_audio(combined_audio)
-
-    # Optional: Export a short debug version of the video (first 10 seconds)
-    # debug_video = composite_video.subclip(0, )
-    # print(debug_video.size)
-    # Write the final video to a file
-    composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=30)
+    composite_video = composite_video.set_audio(final_audio)
+    composite_video = composite_video.subclip(0, 10)
+    composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
     logging.info(f"Final video saved at {output_video}")
 
 def create_combined_video_for_post(post, title, content, output_folder="out/"):
@@ -300,5 +401,7 @@ def create_combined_video_for_post(post, title, content, output_folder="out/"):
         output_video=output_video_path
     ) == None:
         logging.error(f"Could not create video for post: {post['title']}")
+        return None
     
     logging.info(f"Video created for post: {post['title']} at {output_video_path}")
+    return True

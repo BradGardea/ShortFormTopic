@@ -1,8 +1,12 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
 
-def get_tts(text, output_dir, output_name):
-    # Ensure output directory exists
+def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeural', speech_rate='1.0'):
+    """
+    Generate speech from text using Azure TTS, save the audio to a file, 
+    and return the file path and word timestamps.
+    """
+    # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
     # Set up Azure Speech configuration
@@ -11,36 +15,59 @@ def get_tts(text, output_dir, output_name):
         region=os.environ.get('SPEECH_REGION')
     )
     
-    # Set voice to neural multilingual
-    speech_config.speech_synthesis_voice_name = 'en-US-AvaMultilingualNeural'
+    # Set the voice name
+    speech_config.speech_synthesis_voice_name = voice_name
+    speech_config.request_word_level_timestamps()
     
+    # Enable word boundary events for capturing timestamps
+    speech_config.set_property(
+        property_id=speechsdk.PropertyId.SpeechServiceResponse_RequestWordBoundary, 
+        value='true'
+    )
+
     # Configure audio output to save to a file
     audio_file_path = os.path.join(output_dir, output_name)
     audio_config = speechsdk.audio.AudioOutputConfig(filename=audio_file_path)
-    
-    # Initialize the speech synthesizer with audio configuration
+
+    # Initialize the speech synthesizer
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config,
         audio_config=audio_config
     )
-    
+
     # Container for word-level timestamps
     word_timestamps = []
 
-    # Define callback for word boundary events to capture timestamps
-    def word_boundary_handler(evt):
+    # Define callback for word boundary events
+    def speech_synthesizer_word_boundary_cb(evt):
         word_info = {
             'text': evt.text,
-            'offset': evt.audio_offset / 10_000,  # Convert to milliseconds
-            'duration': evt.duration / 10_000  # Convert to milliseconds
+            'offset': evt.audio_offset,
+            'duration': evt.duration,
+            'text_offset': evt.text_offset,
+            'word_length': evt.word_length
         }
         word_timestamps.append(word_info)
+        # print(f"WordBoundary event: Text='{evt.text}', Offset={evt.audio_offset}, Duration={evt.duration}")
 
-    # Connect the event handler
-    speech_synthesizer.synthesis_word_boundary.connect(word_boundary_handler)
+    # Subscribe to the word boundary event
+    speech_synthesizer.synthesis_word_boundary.connect(speech_synthesizer_word_boundary_cb)
 
-    # Perform the text-to-speech synthesis
-    speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
+    # Generate SSML with speech rate customization
+    ssml = f"""
+    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+        <voice name='{voice_name}'>
+            <prosody rate='{speech_rate}'>
+                {text}
+            </prosody>
+        </voice>
+    </speak>
+    """
+    
+    # print("SSML to synthesize:\n", ssml)
+    
+    # Perform the text-to-speech synthesis using SSML
+    speech_synthesis_result = speech_synthesizer.speak_ssml_async(ssml).get()
 
     # Check if synthesis was successful
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
