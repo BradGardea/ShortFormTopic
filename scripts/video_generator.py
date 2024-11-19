@@ -5,7 +5,13 @@ import random
 import os
 import logging
 from datetime import timedelta
+from PIL import Image
 import numpy as np
+import math
+from moviepy.video.tools.segmenting import findObjects
+import pysrt
+
+
 
 
 def blur(clip, sigma):
@@ -114,37 +120,183 @@ def get_random_color_combination():
     ]
     return random.choice(color_combinations)
 
-import random
-from moviepy.editor import TextClip
+def zoom_out_effect(clip, zoom_max_ratio=0.2, zoom_out_factor=0.04):
+    def effect(get_frame, t):
+        img = Image.fromarray(get_frame(t))
+        base_size = img.size
+ 
+        # Reverse the zoom effect by starting zoomed in and zooming out
+        scale_factor = zoom_max_ratio - (zoom_out_factor * t)
+        scale_factor = max(scale_factor, 0)  # Ensure scale factor doesn't go negative
+ 
+        new_size = [
+            math.ceil(base_size[0] * (1 + scale_factor)),
+            math.ceil(base_size[1] * (1 + scale_factor))
+        ]
+ 
+        # The new dimensions must be even.
+        new_size[0] = new_size[0] - (new_size[0] % 2)
+        new_size[1] = new_size[1] - (new_size[1] % 2)
+ 
+        img = img.resize(new_size, Image.LANCZOS)
+ 
+        x = math.ceil((new_size[0] - base_size[0]) / 2)
+        y = math.ceil((new_size[1] - base_size[1]) / 2)
+ 
+        img = img.crop([
+            x, y, new_size[0] - x, new_size[1] - y
+        ])
+ 
+        # Resize back to base size
+        img = img.resize(base_size, Image.LANCZOS)
+ 
+        result = np.array(img)
+        img.close()
+ 
+        return result
+ 
+    return clip.fl(effect)
 
-def create_text_clips(word_timestamps, original_text, text_color, stroke_color):
+def zoom_in_effect(clip, zoom_ratio=0.04, target_duration=None):
+    """
+    Apply a zoom-in effect to a clip over a specified target duration.
+    If target_duration is not provided, the zoom will apply over the entire clip duration.
+    """
+    if target_duration is None:
+        target_duration = clip.duration  # Default to the full clip duration if not specified
+
+    def effect(get_frame, t):
+        # Calculate the zoom factor based on the target duration
+        zoom_factor = min(t / target_duration, 1)  # Clamp to [0, 1] range
+        current_zoom_ratio = zoom_ratio * zoom_factor
+
+        img = Image.fromarray(get_frame(t))
+        base_size = img.size
+
+        # Calculate the new size based on the current zoom ratio
+        new_size = [
+            math.ceil(img.size[0] * (1 + current_zoom_ratio)),
+            math.ceil(img.size[1] * (1 + current_zoom_ratio))
+        ]
+
+        # Ensure the new dimensions are even numbers
+        new_size[0] = new_size[0] + (new_size[0] % 2)
+        new_size[1] = new_size[1] + (new_size[1] % 2)
+
+        # Resize and crop the image to achieve the zoom effect
+        img = img.resize(new_size, Image.LANCZOS)
+        x = math.ceil((new_size[0] - base_size[0]) / 2)
+        y = math.ceil((new_size[1] - base_size[1]) / 2)
+        img = img.crop([x, y, new_size[0] - x, new_size[1] - y]).resize(base_size, Image.LANCZOS)
+
+        result = np.array(img)
+        img.close()
+
+        return result
+
+    return clip.fl(effect)
+
+def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effect):
+    """
+    Creates a typewriter effect for the given text.
+    - If the text contains one word, it animates each letter.
+    - If the text contains multiple words, it animates each word.
+    """
+    # Set ImageMagick binary path (adjust as per your system)
+    change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
+
+    # Determine if the text is a single word or multiple words
+    size=(1080, 500)
+    # Use findObjects to locate each letter or word
+    text_clip = TextClip(
+        text,
+        fontsize=150,
+        stroke_color=stroke_color,
+        stroke_width=5,
+        color=text_color,
+        font="Trueno_bold",
+        method="caption",
+        kerning=-2,
+        size=size  # Adjusted size for better visibility
+    )
+        # If it's a single word, animate each letter
+    objects = findObjects(text_clip, preview=False)
+
+    # Select the start time for each letter or word found
+    n = len(objects)
+    if n > 1:
+        times_start = [duration_effect * i / (n - 1) for i in range(n)]
+    else:
+        times_start = [0]
+    clips = []
+
+    for i, obj in enumerate(objects):
+        clips.append(obj
+            .set_position(obj.screenpos)
+            .set_start(times_start[i])
+            .set_end(duration_clip)
+        )
+
+    # Return the final composite clip
+    composite = CompositeVideoClip(clips, size=size).set_position(("center", "center"))
+    # composite.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
+    return composite
+
+def parse_srt_file(srt_path):
+    """
+    Parses the SRT file and extracts word-level timestamps.
+    Returns a list of dictionaries with 'text', 'offset', and 'duration' keys.
+    """
+    srt_subs = pysrt.open(srt_path)
+    word_timestamps = []
+
+    for sub in srt_subs:
+        start_time = (sub.start.hours * 3600 + sub.start.minutes * 60 + sub.start.seconds + sub.start.milliseconds / 1000)
+        end_time = (sub.end.hours * 3600 + sub.end.minutes * 60 + sub.end.seconds + sub.end.milliseconds / 1000)
+        duration = end_time - start_time
+
+        word_info = {
+            'text': sub.text.strip(),
+            'offset': start_time,  # Keep offset in seconds for consistency
+            'duration': duration   # Duration in seconds
+        }
+        word_timestamps.append(word_info)
+
+    return word_timestamps
+
+def create_text_clips(srt_path, audio_end, text_color, stroke_color, max_length = 57, timing_multiplier=1):
     """
     Create text clips from timestamps with special effects.
-    Ensure each clip has a minimum duration of 0.4 seconds by combining words if necessary.
+    Ensure each clip has a minimum duration of 0.2 seconds by combining words if necessary.
     """
-    merged_word_timestamps = merge_special_characters(word_timestamps, original_text)
-    if merged_word_timestamps is None:
+    # Parse the SRT file to get word timestamps
+    word_timestamps = parse_srt_file(srt_path)
+    if not word_timestamps:
         return None
 
     text_clips = []
     i = 0
-    total_words = len(merged_word_timestamps)
-
+    total_words = len(word_timestamps)
     while i < total_words:
         # Initialize variables for collecting words
         text_fragment = []
-        start_time = merged_word_timestamps[i]['offset'] / 1_000_000  # Convert to seconds
+        start_time = word_timestamps[i]['offset'] * timing_multiplier
         word_start_time = start_time
         combined_duration = 0.0
         
-        # Collect words until the combined duration is at least 0.4 seconds
-        while i < total_words and combined_duration < 0.4:
-            word_info = merged_word_timestamps[i]
+        # Collect words until the combined duration is at least 0.5 seconds
+        while (i < total_words and combined_duration < 0.22) or (i < total_words and word_timestamps[i]["text"].startswith("-")):
+            word_info = word_timestamps[i]
             word = word_info['text']
-            text_fragment.append(word)
+            
+            # Check if the word starts with "-" and merge it with the previous word if applicable
+            if word.startswith('-') and text_fragment:
+                text_fragment[-1] += word.replace("-", "")
+            else:
+                text_fragment.append(word)
 
             # Update the duration for the current group of words
-            current_word_duration = word_info['duration'] / 1_000_000
+            current_word_duration = word_info['duration'] * timing_multiplier
             combined_duration += current_word_duration
             
             i += 1
@@ -152,35 +304,33 @@ def create_text_clips(word_timestamps, original_text, text_color, stroke_color):
         # Combine the collected words into a single string
         combined_text = ' '.join(text_fragment)
 
+        # Special case for handling specific abbreviations
+        if combined_text.replace("-", "") in ["AITA", "WIBTA", "AITAH", "WIBTAH"]:
+            combined_text = combined_text.replace("-", "")
+
         # Create the TextClip with specified colors and font settings
         change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
-        text_clip = TextClip(
-            combined_text,
-            fontsize=120,
-            stroke_color=stroke_color,
-            stroke_width=3,
-            color=text_color,
-            font="Trueno_bold",
-            method="label",
-            kerning=-1,
-            # size=(1080, 200)  # Adjusted size for better visibility
-        )
-
-        # Apply the zoom-in effect (starts at 50% size and grows to full size)
+        if i == total_words - 1:
+            combined_duration = combined_duration + max(0, audio_end - (word_start_time + combined_duration))
+            text_clip = clip_typewriter(combined_text, text_color, stroke_color, combined_duration, combined_duration / 2.5)
+        else:
+            text_clip = clip_typewriter(combined_text, text_color, stroke_color, combined_duration, combined_duration / 2.5)
+        
+        # Apply text clip settings
         text_clip = text_clip.set_start(word_start_time)
         text_clip = text_clip.set_position(('center', 'center'))
         text_clip = text_clip.set_duration(combined_duration)
-
-        # Add the zoom-in jump effect (starts at 50% size and grows to full size)
-        zoomed_clip = text_clip.resize(lambda t: 0.1 + 0.5 * (t / text_clip.duration)).crossfadein(0.4)
-
-        # Append the created clip to the list
-        text_clips.append(zoomed_clip)
+        # text_clip.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
+        # print(f"Added text: {combined_text} from {text_clip.start} to {text_clip.start +text_clip.duration}\n")
+        text_clips.append(text_clip)
+        if text_clip.start +text_clip.duration > max_length:
+            return text_clips
 
     return text_clips
 
-
 def get_audio_duration(audio_file):
+    if audio_file == None:
+        return -1
     """ Get the duration of the audio file in seconds using MoviePy. """
     with AudioFileClip(audio_file) as audio_clip:
         return audio_clip.duration
@@ -295,8 +445,8 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
                 curr_checks += 1
 
         # Check if the video is from the 'loops' folder and loop it if it's less than 30 seconds
-        if 'loops' in video_file and video_duration < 30:
-            video_clip = loop_video_clip(video_clip, 40)
+        if 'loops' in video_file and video_duration < 20:
+            video_clip = loop_video_clip(video_clip, 20)
             video_duration = video_clip.duration
 
         if total_duration + video_duration <= duration_needed:
@@ -312,34 +462,81 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
 
     return selected_videos
 
+def add_overlay_video(base_video, overlay_video_path, start_time, output_video, final_audio=None):
+    """
+    Overlay another video (with audio) on top of the base video at a specific timestamp.
+    
+    Parameters:
+    - base_video: The original composite video (VideoFileClip or CompositeVideoClip).
+    - overlay_video_path: Path to the overlay video file.
+    - start_time: Timestamp (in seconds) where the overlay video should start.
+    - output_video: Path where the final video will be saved.
+    - final_audio: Optional audio clip to set as the final audio.
+    """
+    
+    # Load the overlay video
+    overlay_clip = VideoFileClip(overlay_video_path)
+    overlay_clip = overlay_clip.resize(height=800)
+    
+    # Adjust the start time of the overlay video
+    overlay_clip = overlay_clip.set_start(start_time)
+    
+    # Set position if needed (e.g., center it)
+    overlay_clip = overlay_clip.set_position(("center", "center"))
+    
+    # Combine the base video and overlay video
+    final_composite = CompositeVideoClip([base_video, overlay_clip])
+    
+    # Optionally set audio (if provided)
+    if final_audio:
+        final_composite = final_composite.set_audio(final_audio)
+    
+    # Optional subclip for testing (remove or modify as needed)
+    # final_composite = final_composite.subclip(0, 10)
+    
+    # Write the final video file
+    final_composite = final_composite.subclip(0, 59)
+    final_composite.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
+    print(f"Final video saved at {output_video}")
 
-def combine_audio_and_video(title_audio_file, content_audio_file, video_clips, title_timings, title_text, content_timings, content_text, output_video="final_output.mp4"):
+def create_silence(duration=3):
+    return AudioClip(lambda t: 0, duration=duration, fps=44100)
+
+# def combine_audio_and_video(title_audio_file, content_audio_file, video_clips, title_timings, title_text, content_timings, content_text, output_video="final_output.mp4"):
+def combine_audio_and_video(full_audio_path, video_clips, full_timings, full_text, output_video="final_output.mp4"):
+
     """Combine audio files and video clips with text overlays into a final video."""
     # Load the audio files
-    title_audio_clip = AudioFileClip(title_audio_file)
-    content_audio_clip = AudioFileClip(content_audio_file)
+    # title_audio_clip = AudioFileClip(title_audio_file)
+    # content_audio_clip = AudioFileClip(content_audio_file)
     
     # Concatenate the audio clips (title followed by content)
-    combined_audio = concatenate_audioclips([title_audio_clip, content_audio_clip])
+    # combined_audio = concatenate_audioclips([title_audio_clip, content_audio_clip])
+    
+    combined_audio = AudioFileClip(full_audio_path)
     
     # Calculate total audio duration
     total_duration = combined_audio.duration
 
     background_audio_clip = AudioFileClip("data/background_audio.mp3")
     background_audio_looped = concatenate_audioclips([background_audio_clip] * int(total_duration // background_audio_clip.duration + 1))
-    background_audio_looped = background_audio_looped.subclip(0, total_duration).volumex(0.2)  # Lower the volume of background music
+    background_audio_looped = background_audio_looped.subclip(0, total_duration).volumex(0.25)  # Lower the volume of background music
     final_audio = CompositeAudioClip([combined_audio, background_audio_looped])
 
     
     text_color, stroke_color = get_random_color_combination()
 
     # Generate text overlays
-    title_text_clips = create_text_clips(title_timings, title_text, text_color, stroke_color)
-    if title_text == None:
-        return None
-    content_text_clips = create_text_clips(content_timings[: 100], content_text[:100], text_color, stroke_color)
-    if content_text_clips == None:
-        return None
+    # title_text_clips = create_text_clips(title_timings, title_audio_clip.duration, text_color, stroke_color)
+    # if title_text == None:
+    #     return None
+    # content_text_clips = create_text_clips(content_timings, content_audio_clip.duration, text_color, stroke_color)
+    # if content_text_clips == None:
+    #     return None
+
+    target_length = 60
+    
+    full_text_clips = create_text_clips(full_timings, combined_audio.duration, text_color, stroke_color, target_length)
 
     
     new_clips = []
@@ -355,49 +552,74 @@ def combine_audio_and_video(title_audio_file, content_audio_file, video_clips, t
 
     final_video = concatenate_videoclips(new_clips).set_duration(total_duration)
 
-    title_clip = concatenate_videoclips(title_text_clips, method="compose")
-    content_clip = concatenate_videoclips(content_text_clips, method="compose")
-    if title_text_clips:
-        last_title_clip_end = title_text_clips[-1].end
-    else:
-        last_title_clip_end = 0
+    # title_clip = concatenate_videoclips(title_text_clips, method="compose").set_end(title_audio_clip.duration)
+    # content_clip = concatenate_videoclips(content_text_clips, method="compose")
+    
+    # if title_text_clips:
+    #     last_title_clip_end = title_clip.end
+    # else:
+    #     last_title_clip_end = 0
 
-    title_audio_end = title_audio_clip.duration
-    gap_duration = max(0, title_audio_end - last_title_clip_end) * 4
-    content_clip.set_start(content_clip.start + gap_duration)
-    text_clip = concatenate_videoclips([title_clip, content_clip], method="compose").set_position(('center', 'center'))
+    # title_audio_end = title_audio_clip.duration
+    # gap_duration = max(0, title_audio_end - last_title_clip_end)
+    # # content_clip = content_clip.set_duration(content_audio_clip.duration)
+    # content_clip = content_clip.set_start(content_clip.start + gap_duration)
 
-    composite_video = CompositeVideoClip([final_video, text_clip]).set_position(('center', 'center'))
 
-    composite_video = composite_video.set_audio(final_audio)
-    composite_video = composite_video.subclip(0, 10)
-    composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
-    logging.info(f"Final video saved at {output_video}")
+    text_clip = CompositeVideoClip(full_text_clips).set_position(('center', 'center'))
+    composite_video = CompositeVideoClip([final_video, text_clip], use_bgclip=True).set_position(('center', 'center'))
 
-def create_combined_video_for_post(post, title, content, output_folder="out/"):
+    # if composite_video.duration > 60:
+    final_audio = final_audio.subclip(0, target_length - 3)
+    silence_audio = create_silence(3)
+    combined_audio = concatenate_audioclips([final_audio, silence_audio])
+
+    # Set the combined audio to the video
+    composite_video = composite_video.set_audio(combined_audio)
+    composite_video = composite_video.subclip(0, target_length)
+
+    # Overlay another video on top at the specified time
+    add_overlay_video(composite_video, "data/like_part_2.mp4", target_length - 3, output_video)
+    # else:
+    #     composite_video = composite_video.set_audio(final_audio)
+    #     composite_video = composite_video.subclip(0, 10)
+    #     composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
+    #     logging.info(f"Final video saved at {output_video}")
+
+    return True
+
+def create_combined_video_for_post(post, full, output_folder="out/"):
     """Create a combined video for the post using the video generator."""
     # Calculate total audio duration
-    title_tts_audio_file = title[0]
-    content_tts_audio_file = content[0]
-    title_duration = get_audio_duration(title_tts_audio_file)
-    content_duration = get_audio_duration(content_tts_audio_file)
-    total_audio_duration = title_duration + content_duration + 5  # Adding buffer time
+    # title_tts_audio_file = title[0]
+    # content_tts_audio_file = content[0]
+    # title_duration = get_audio_duration(title_tts_audio_file)
+    # content_duration = get_audio_duration(content_tts_audio_file)
+    # if title_duration == -1 or content_duration == -1:
+    #     return None
+
+    # total_audio_duration = title_duration + content_duration + 5  # Adding buffer time
+
+    total_audio_duration = get_audio_duration(full[0])
 
     # Select random videos to match the duration of the combined audio
     video_clips = select_and_trim_videos(duration_needed=total_audio_duration)
     if video_clips == None:
-        return
+        return None
 
     # Generate the final video with text overlays
     output_video_path = os.path.join(output_folder, f"{post['id']}_final_video.mp4")
     if combine_audio_and_video(
-        title_audio_file=title_tts_audio_file,
-        content_audio_file=content_tts_audio_file,
+        # title_audio_file=title_tts_audio_file,
+        # content_audio_file=content_tts_audio_file,
+        full_audio_path = full[0],
         video_clips=video_clips,
-        title_timings=title[1],   # Word timings for title TTS
-        title_text=title[2],
-        content_timings=content[1], # Word timings for content TTS
-        content_text=content[2],
+        # title_timings=title[1],   # Word timings for title TTS
+        # title_text=title[2],
+        # content_timings=content[1], # Word timings for content TTS
+        # content_text=content[2],
+        full_timings = full[1],
+        full_text = full[2],
         output_video=output_video_path
     ) == None:
         logging.error(f"Could not create video for post: {post['title']}")

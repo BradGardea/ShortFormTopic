@@ -1,5 +1,6 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
+import stable_whisper
 
 def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeural', speech_rate='1.0'):
     """
@@ -26,7 +27,7 @@ def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeur
     )
 
     # Configure audio output to save to a file
-    audio_file_path = os.path.join(output_dir, output_name)
+    audio_file_path = os.path.join(output_dir, output_name + ".mp3")
     audio_config = speechsdk.audio.AudioOutputConfig(filename=audio_file_path)
 
     # Initialize the speech synthesizer
@@ -54,25 +55,32 @@ def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeur
     speech_synthesizer.synthesis_word_boundary.connect(speech_synthesizer_word_boundary_cb)
 
     # Generate SSML with speech rate customization
-    ssml = f"""
-    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='{voice_name}'>
-            <prosody rate='{speech_rate}'>
-                {text}
-            </prosody>
-        </voice>
-    </speak>
-    """
+    # ssml = f"""
+    # <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+    #     <voice name='{voice_name}'>
+    #         <prosody rate='{speech_rate}'>
+    #             {text}
+    #         </prosody>
+    #     </voice>
+    # </speak>
+    # """
     
     # print("SSML to synthesize:\n", ssml)
     
+    srt_path = os.path.join(output_dir, f"{output_name}_transcription.srt")
+
     # Perform the text-to-speech synthesis using SSML
-    speech_synthesis_result = speech_synthesizer.speak_ssml_async(ssml).get()
+    speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
 
     # Check if synthesis was successful
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print(f"Speech synthesized for text: [{text}]")
         print(f"Audio saved to: {audio_file_path}")
+        model = stable_whisper.load_model('base')
+        result = model.transcribe(audio_file_path)
+        result.to_srt_vtt(srt_path, segment_level=False)
+
+
     elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:
         cancellation_details = speech_synthesis_result.cancellation_details
         print(f"Speech synthesis canceled: {cancellation_details.reason}")
@@ -83,4 +91,6 @@ def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeur
         return None, None
 
     # Return the path of the saved audio file and the word timestamps
-    return audio_file_path, word_timestamps
+    return audio_file_path, srt_path
+
+

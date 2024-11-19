@@ -277,7 +277,7 @@ def scrape_subreddit(subreddit_url, existing_ids, subreddit_type):
 def run_scrapers(interval=30):
     """Runs multiple subreddit scrapers in parallel for a specified interval, then stops them."""
     while True:
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             # Load existing IDs once and pass them to the threads
             existing_ids = load_existing_ids()
 
@@ -286,6 +286,9 @@ def run_scrapers(interval=30):
             future1 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/AmItheAsshole/", existing_ids, "text", interval, stop_event)
             future2 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/perfectloops/", existing_ids, "video", interval, stop_event)
             future3 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/oddlysatisfying/", existing_ids, "video", interval, stop_event)
+            future4 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/Satisfyingasfuck/", existing_ids, "video", interval, stop_event)
+            future5 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/mildlyinfuriating/", existing_ids, "text", interval, stop_event)
+
 
             # Wait for the specified interval
             logging.info(f"Scraping for {interval} seconds...")
@@ -296,7 +299,7 @@ def run_scrapers(interval=30):
             logging.info("Stopping scrapers...")
 
             # Wait for all scraper threads to complete
-            wait([future1, future2, future3])
+            wait([future1, future2, future3, future4, future5])
             logging.info("All scrapers have finished. Returning control to the main thread.")
 
         # Break out of the while loop to return control to the main thread

@@ -31,17 +31,20 @@ def generate_tts_for_post(post, tts_folder_name):
     content = post['content']
     
     try:
-        # Generate TTS for the title
-        title_path, timings_title = get_tts(title, f"data/TTS/{tts_folder_name}", "title.mp3", speech_rate=1)
+        # # Generate TTS for the title
+        # title_path, timings_title = get_tts(title, f"data/TTS/{tts_folder_name}", "title", speech_rate=1)
         
-        # Generate TTS for the content
-        content_path, timings_content = get_tts(content, f"data/TTS/{tts_folder_name}", "content.mp3", speech_rate=1)
+        # # Generate TTS for the content
+        # content_path, timings_content = get_tts(content[:200], f"data/TTS/{tts_folder_name}", "content", speech_rate=1)
+
+        target_text = title + content
+        full_path, timings_full = get_tts(target_text, f"data/TTS/{tts_folder_name}", "full", speech_rate=1)
         
         logging.info(f"TTS generation successful for post: {title}")
-        return (title_path, timings_title, post['title']), (content_path, timings_content, post['content'])
+        return (full_path, timings_full, target_text)
     except Exception as e:
         logging.error(f"Error generating TTS for post {title}: {e}")
-        return None, None
+        return None
 
 def update_post_as_generated(post_id, filename='data/reddit_posts.csv'):
     """Update the post as 'generated' in the CSV."""
@@ -64,7 +67,7 @@ def main():
 
     while True:
         # Step 1: Run scrapers in parallel for the specified interval
-        # run_scrapers(interval)
+        #run_scrapers(interval)
 
         # Step 2: Process posts after scrapers are done
         logging.info("Scraping completed. Now selecting and processing posts.")
@@ -78,15 +81,15 @@ def main():
 
                 # Generate TTS for the post
                 tts_folder_name = post['id']
-                title, content = generate_tts_for_post(post, tts_folder_name=tts_folder_name)
+                # title, content = generate_tts_for_post(post, tts_folder_name=tts_folder_name)
+                full = generate_tts_for_post(post, tts_folder_name=tts_folder_name)
+
                 
-                if title is not None and content is not None:
-                    # Mark the post as generated
-
+                # if title is not None and content is not None:
+                if full != None:
                     # Create a combined video for the post
-                    if (create_combined_video_for_post(post, title, content) != None):
+                    if (create_combined_video_for_post(post, full) != None):
                         update_post_as_generated(post['id'])
-
                 else:
                     logging.error(f"Failed to generate TTS for post: {post['title']}")
             else:
