@@ -285,7 +285,7 @@ def create_text_clips(srt_path, audio_end, text_color, stroke_color, max_length 
         combined_duration = 0.0
         
         # Collect words until the combined duration is at least 0.5 seconds
-        while (i < total_words and combined_duration < 0.22) or (i < total_words and word_timestamps[i]["text"].startswith("-")):
+        while (i < total_words and combined_duration < 0.12) or (i < total_words and word_timestamps[i]["text"].startswith("-")):
             word_info = word_timestamps[i]
             word = word_info['text']
             
@@ -323,7 +323,7 @@ def create_text_clips(srt_path, audio_end, text_color, stroke_color, max_length 
         # text_clip.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
         # print(f"Added text: {combined_text} from {text_clip.start} to {text_clip.start +text_clip.duration}\n")
         text_clips.append(text_clip)
-        if text_clip.start +text_clip.duration > max_length:
+        if text_clip.start + text_clip.duration > max_length:
             return text_clips
 
     return text_clips
@@ -397,11 +397,37 @@ def video_has_too_many_black_pixels(video_clip, max_frames=10, threshold=20, mov
     return False
 
 
-def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos"):
+def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos", mode="default", videos=None):
     """ 
-    Select random videos from 'loops' and 'regular' folders, checking for black pixel content, 
-    and trim them to fit the needed duration.
+    Select videos based on mode, check for black pixel content, and trim or loop them to fit the needed duration.
+    
+    Modes:
+    - default: Randomly select videos from 'loops' and 'regular' folders.
+    - custom: Use the provided list of videos, loop each equally to fit the required duration.
     """
+    # Handle 'custom' mode
+    if mode == "custom":
+        if not videos or len(videos) == 0:
+            logging.error("Custom mode requires a non-empty list of videos.")
+            return None
+        
+        # Calculate equal looping duration for each video
+        num_videos = len(videos)
+        duration_per_video = duration_needed / num_videos
+
+        selected_videos = []
+        for video_file in videos:
+            try:
+                video_clip = VideoFileClip(video_file)
+                video_clip = loop_video_clip(video_clip, duration_per_video)
+                selected_videos.append(video_clip)
+            except Exception as e:
+                logging.error(f"Error processing video '{video_file}': {e}")
+                return None
+
+        return selected_videos
+
+    # Default behavior for 'default' mode
     # Get all video files from both 'loops' and 'regular' folders
     video_files = []
     for subfolder in ['loops', 'regular']:
@@ -419,39 +445,36 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
         curr_checks = 0
         video_clip = None
 
-        while video_clip is None:
-            if curr_checks >= max_checks:
-                return None
-            else:
-                try:
-                    video_file = random.choice(video_files)
-                    video_clip = VideoFileClip(video_file)
-                    video_duration = video_clip.duration
-                    
-                    # Check for too many black pixels
-                    if video_has_too_many_black_pixels(video_clip):
-                        logging.info(f"Video '{video_file}' rejected due to high black pixel content.")
-                        # video_files.remove(video_file)
-                        video_clip = None
-                        continue
-                    logging.info(f"Video '{video_file}' selected.")
-
-
-                except Exception as e:
-                    logging.error(f"Error processing video '{video_file}': {e}")
-                    #video_files.remove(video_file)
+        while video_clip is None and curr_checks < max_checks:
+            try:
+                video_file = random.choice(video_files)
+                video_clip = VideoFileClip(video_file)
+                video_duration = video_clip.duration
+                
+                # Check for too many black pixels
+                if video_has_too_many_black_pixels(video_clip):
+                    logging.info(f"Video '{video_file}' rejected due to high black pixel content.")
                     video_clip = None
+                    continue
 
-                curr_checks += 1
+                logging.info(f"Video '{video_file}' selected.")
+            except Exception as e:
+                logging.error(f"Error processing video '{video_file}': {e}")
+                video_clip = None
 
-        # Check if the video is from the 'loops' folder and loop it if it's less than 30 seconds
-        if 'loops' in video_file and video_duration < 20:
+            curr_checks += 1
+
+        if video_clip is None:
+            logging.error("Max attempts reached. Unable to find a valid video.")
+            break
+
+        # Check if the video is from the 'loops' folder and loop it if it's less than 20 seconds
+        if 'loops' in video_file and video_clip.duration < 20:
             video_clip = loop_video_clip(video_clip, 20)
-            video_duration = video_clip.duration
 
-        if total_duration + video_duration <= duration_needed:
+        if total_duration + video_clip.duration <= duration_needed:
             selected_videos.append(video_clip)
-            total_duration += video_duration
+            total_duration += video_clip.duration
         else:
             # If adding this video exceeds the duration needed, trim it
             trimmed_video = video_clip.subclip(0, duration_needed - total_duration)
@@ -461,6 +484,7 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
             break  # Stop once we've reached the required duration
 
     return selected_videos
+
 
 def add_overlay_video(base_video, overlay_video_path, start_time, output_video, final_audio=None):
     """
@@ -491,9 +515,6 @@ def add_overlay_video(base_video, overlay_video_path, start_time, output_video, 
     if final_audio:
         final_composite = final_composite.set_audio(final_audio)
     
-    # Optional subclip for testing (remove or modify as needed)
-    # final_composite = final_composite.subclip(0, 10)
-    
     # Write the final video file
     final_composite = final_composite.subclip(0, 59)
     final_composite.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
@@ -520,21 +541,14 @@ def combine_audio_and_video(full_audio_path, video_clips, full_timings, full_tex
 
     background_audio_clip = AudioFileClip("data/background_audio.mp3")
     background_audio_looped = concatenate_audioclips([background_audio_clip] * int(total_duration // background_audio_clip.duration + 1))
-    background_audio_looped = background_audio_looped.subclip(0, total_duration).volumex(0.25)  # Lower the volume of background music
+    background_audio_looped = background_audio_looped.subclip(0, total_duration).volumex(0.2)  # Lower the volume of background music
     final_audio = CompositeAudioClip([combined_audio, background_audio_looped])
 
     
     text_color, stroke_color = get_random_color_combination()
 
-    # Generate text overlays
-    # title_text_clips = create_text_clips(title_timings, title_audio_clip.duration, text_color, stroke_color)
-    # if title_text == None:
-    #     return None
-    # content_text_clips = create_text_clips(content_timings, content_audio_clip.duration, text_color, stroke_color)
-    # if content_text_clips == None:
-    #     return None
 
-    target_length = 60
+    target_length = final_audio.duration
     
     full_text_clips = create_text_clips(full_timings, combined_audio.duration, text_color, stroke_color, target_length)
 
@@ -552,63 +566,37 @@ def combine_audio_and_video(full_audio_path, video_clips, full_timings, full_tex
 
     final_video = concatenate_videoclips(new_clips).set_duration(total_duration)
 
-    # title_clip = concatenate_videoclips(title_text_clips, method="compose").set_end(title_audio_clip.duration)
-    # content_clip = concatenate_videoclips(content_text_clips, method="compose")
-    
-    # if title_text_clips:
-    #     last_title_clip_end = title_clip.end
-    # else:
-    #     last_title_clip_end = 0
-
-    # title_audio_end = title_audio_clip.duration
-    # gap_duration = max(0, title_audio_end - last_title_clip_end)
-    # # content_clip = content_clip.set_duration(content_audio_clip.duration)
-    # content_clip = content_clip.set_start(content_clip.start + gap_duration)
-
 
     text_clip = CompositeVideoClip(full_text_clips).set_position(('center', 'center'))
     composite_video = CompositeVideoClip([final_video, text_clip], use_bgclip=True).set_position(('center', 'center'))
 
-    # if composite_video.duration > 60:
-    final_audio = final_audio.subclip(0, target_length - 3)
-    silence_audio = create_silence(3)
-    combined_audio = concatenate_audioclips([final_audio, silence_audio])
 
-    # Set the combined audio to the video
-    composite_video = composite_video.set_audio(combined_audio)
-    composite_video = composite_video.subclip(0, target_length)
+    # final_audio = final_audio.subclip(0, target_length - 3)
+    # silence_audio = create_silence(3)
+    # combined_audio = concatenate_audioclips([final_audio, silence_audio])
+    # add_overlay_video(composite_video, "data/like_part_2.mp4", target_length - 3, output_video)
 
-    # Overlay another video on top at the specified time
-    add_overlay_video(composite_video, "data/like_part_2.mp4", target_length - 3, output_video)
-    # else:
-    #     composite_video = composite_video.set_audio(final_audio)
-    #     composite_video = composite_video.subclip(0, 10)
-    #     composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
-    #     logging.info(f"Final video saved at {output_video}")
+    composite_video = composite_video.set_audio(final_audio)
+    composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
+    logging.info(f"Final video saved at {output_video}")
+    with open()
+    logging.info(f"Saved story at {}")
 
     return True
 
 def create_combined_video_for_post(post, full, output_folder="out/"):
     """Create a combined video for the post using the video generator."""
-    # Calculate total audio duration
-    # title_tts_audio_file = title[0]
-    # content_tts_audio_file = content[0]
-    # title_duration = get_audio_duration(title_tts_audio_file)
-    # content_duration = get_audio_duration(content_tts_audio_file)
-    # if title_duration == -1 or content_duration == -1:
-    #     return None
-
-    # total_audio_duration = title_duration + content_duration + 5  # Adding buffer time
-
     total_audio_duration = get_audio_duration(full[0])
 
     # Select random videos to match the duration of the combined audio
+    # video_clips = select_and_trim_videos(duration_needed=total_audio_duration, mode="custom", videos=["./data/satisfying_videos/loops/roadside.mp4", "./data/satisfying_videos/loops/l_water_water_flowing_down_can_you_hear_the_babbling_sound_.mp4", "./data/satisfying_videos/loops/temporal_architecture.mp4"])
     video_clips = select_and_trim_videos(duration_needed=total_audio_duration)
     if video_clips == None:
         return None
 
     # Generate the final video with text overlays
     output_video_path = os.path.join(output_folder, f"{post['id']}_final_video.mp4")
+    output_story_path = os.path.join(output_folder, f"{post['id']}_story.txt")
     if combine_audio_and_video(
         # title_audio_file=title_tts_audio_file,
         # content_audio_file=content_tts_audio_file,
@@ -620,7 +608,8 @@ def create_combined_video_for_post(post, full, output_folder="out/"):
         # content_text=content[2],
         full_timings = full[1],
         full_text = full[2],
-        output_video=output_video_path
+        output_video=output_video_path,
+        output_story_path=output_story_path
     ) == None:
         logging.error(f"Could not create video for post: {post['title']}")
         return None

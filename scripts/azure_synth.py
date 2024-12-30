@@ -2,14 +2,14 @@ import os
 import azure.cognitiveservices.speech as speechsdk
 import stable_whisper
 
-def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeural', speech_rate='1.0'):
+def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="Default", degree="1", speech_rate='1.0'):
     """
     Generate speech from text using Azure TTS, save the audio to a file, 
     and return the file path and word timestamps.
     """
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
-
+    voice_name = f"en-US-{voice_name}Neural"
     # Set up Azure Speech configuration
     speech_config = speechsdk.SpeechConfig(
         subscription=os.environ.get('SPEECH_KEY'),
@@ -55,15 +55,15 @@ def get_tts(text, output_dir, output_name, voice_name='en-US-AvaMultilingualNeur
     speech_synthesizer.synthesis_word_boundary.connect(speech_synthesizer_word_boundary_cb)
 
     # Generate SSML with speech rate customization
-    # ssml = f"""
-    # <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-    #     <voice name='{voice_name}'>
-    #         <prosody rate='{speech_rate}'>
-    #             {text}
-    #         </prosody>
-    #     </voice>
-    # </speak>
-    # """
+    ssml = f"""
+    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+        <voice name='{voice_name}'>
+            <mstts:express-as style='{style}' styledegree='{degree}'>
+                {text}
+            </mstts:express-as>
+        </voice>
+    </speak>
+    """
     
     # print("SSML to synthesize:\n", ssml)
     
