@@ -13,10 +13,8 @@ import pysrt
 
 
 
-
 def blur(clip, sigma):
     return clip.fl_image(lambda image: gaussian_filter(image, sigma=sigma), apply_to=['mask'])
-
 
 def merge_special_characters(word_timestamps, original_text):
     """
@@ -92,7 +90,6 @@ def merge_special_characters(word_timestamps, original_text):
             return None
 
     return merged_timestamps
-
 
 def get_random_color_combination():
     """Return a random complementary color combination."""
@@ -362,40 +359,39 @@ def calculate_black_pixel_percentage(frame, rgb_threshold=(0, 0, 0)):
 
     return (black_pixel_count / total_pixels) * 100
 
-def video_has_too_many_black_pixels(video_clip, max_frames=10, threshold=20, moving_avg_window=5):
-    """
-    Check if a video has too many black pixels using a moving average.
+# def video_has_too_many_black_pixels(video_clip, max_frames=10, threshold=20, moving_avg_window=5):
+#     """
+#     Check if a video has too many black pixels using a moving average.
 
-    Parameters:
-        video_clip (VideoFileClip): The video clip to analyze.
-        max_frames (int): Number of frames to analyze.
-        threshold (float): Percentage threshold of black pixels to reject the video.
-        moving_avg_window (int): Window size for moving average.
+#     Parameters:
+#         video_clip (VideoFileClip): The video clip to analyze.
+#         max_frames (int): Number of frames to analyze.
+#         threshold (float): Percentage threshold of black pixels to reject the video.
+#         moving_avg_window (int): Window size for moving average.
 
-    Returns:
-        bool: True if the video has too many black pixels, otherwise False.
-    """
-    frame_count = 0
-    black_pixel_percentages = []
+#     Returns:
+#         bool: True if the video has too many black pixels, otherwise False.
+#     """
+#     frame_count = 0
+#     black_pixel_percentages = []
 
-    for frame in video_clip.iter_frames():
-        if frame_count >= max_frames:
-            break
+#     for frame in video_clip.iter_frames():
+#         if frame_count >= max_frames:
+#             break
         
-        # Calculate the percentage of black pixels in the current frame
-        black_pixel_percentage = calculate_black_pixel_percentage(frame)
-        black_pixel_percentages.append(black_pixel_percentage)
+#         # Calculate the percentage of black pixels in the current frame
+#         black_pixel_percentage = calculate_black_pixel_percentage(frame)
+#         black_pixel_percentages.append(black_pixel_percentage)
 
-        # Check moving average
-        if len(black_pixel_percentages) >= moving_avg_window:
-            moving_avg = np.mean(black_pixel_percentages[-moving_avg_window:])
-            if moving_avg > threshold:
-                return True  # Reject this video
+#         # Check moving average
+#         if len(black_pixel_percentages) >= moving_avg_window:
+#             moving_avg = np.mean(black_pixel_percentages[-moving_avg_window:])
+#             if moving_avg > threshold:
+#                 return True  # Reject this video
 
-        frame_count += 1
+#         frame_count += 1
 
-    return False
-
+#     return False
 
 def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos", mode="default", videos=None):
     """ 
@@ -485,7 +481,6 @@ def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos
 
     return selected_videos
 
-
 def add_overlay_video(base_video, overlay_video_path, start_time, output_video, final_audio=None):
     """
     Overlay another video (with audio) on top of the base video at a specific timestamp.
@@ -527,16 +522,9 @@ def create_silence(duration=3):
 def combine_audio_and_video(full_audio_path, video_clips, full_timings, full_text, output_video="final_output.mp4"):
 
     """Combine audio files and video clips with text overlays into a final video."""
-    # Load the audio files
-    # title_audio_clip = AudioFileClip(title_audio_file)
-    # content_audio_clip = AudioFileClip(content_audio_file)
-    
-    # Concatenate the audio clips (title followed by content)
-    # combined_audio = concatenate_audioclips([title_audio_clip, content_audio_clip])
-    
+   
     combined_audio = AudioFileClip(full_audio_path)
     
-    # Calculate total audio duration
     total_duration = combined_audio.duration
 
     background_audio_clip = AudioFileClip("data/background_audio.mp3")
@@ -579,22 +567,19 @@ def combine_audio_and_video(full_audio_path, video_clips, full_timings, full_tex
     composite_video = composite_video.set_audio(final_audio)
     composite_video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
     logging.info(f"Final video saved at {output_video}")
-    with open()
-    logging.info(f"Saved story at {}")
+    # with open()
+    # logging.info(f"Saved story at {}")
 
     return True
 
-def create_combined_video_for_post(post, full, output_folder="out/"):
+def create_combined_video_for_post(post, full, output_folder="out/", video_clips=[""]):
     """Create a combined video for the post using the video generator."""
-    total_audio_duration = get_audio_duration(full[0])
+    # total_audio_duration = get_audio_duration(full[0])
+    # # Select random videos to match the duration of the combined audio
+    # video_clips = select_and_trim_videos(duration_needed=total_audio_duration)
+    # if video_clips == None:
+    #     return None
 
-    # Select random videos to match the duration of the combined audio
-    # video_clips = select_and_trim_videos(duration_needed=total_audio_duration, mode="custom", videos=["./data/satisfying_videos/loops/roadside.mp4", "./data/satisfying_videos/loops/l_water_water_flowing_down_can_you_hear_the_babbling_sound_.mp4", "./data/satisfying_videos/loops/temporal_architecture.mp4"])
-    video_clips = select_and_trim_videos(duration_needed=total_audio_duration)
-    if video_clips == None:
-        return None
-
-    # Generate the final video with text overlays
     output_video_path = os.path.join(output_folder, f"{post['id']}_final_video.mp4")
     output_story_path = os.path.join(output_folder, f"{post['id']}_story.txt")
     if combine_audio_and_video(

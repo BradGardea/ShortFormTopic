@@ -26,7 +26,15 @@ def update_post_type_based_on_empty_column(csv_file, target_column):
         df.loc[df[target_column].isna() | (df[target_column] == ''), 'post_type'] = "video"
 
         # Update 'post_type' to 'text' where the target column is not NaN and not an empty string
-        df.loc[~df[target_column].isna() & (df[target_column] != ''), 'post_type'] = "text"
+        df.loc[
+            ~df[target_column].isna() & (df[target_column] != '') & 
+            (df["title"].str.contains("AITA") | df["title"].str.contains("WIBTA")), 
+            'post_type'
+        ] = "AITA"
+
+        df.loc[~df[target_column].isna() & (df[target_column] != '') & ("AITA" not in df["title"]) & ("WIBTA" in df["title"]), 'post_type'] = "text"
+
+
 
         
         # Save the updated DataFrame back to the CSV

@@ -21,6 +21,7 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
     speech_config.request_word_level_timestamps()
     
     # Enable word boundary events for capturing timestamps
+
     speech_config.set_property(
         property_id=speechsdk.PropertyId.SpeechServiceResponse_RequestWordBoundary, 
         value='true'
@@ -51,7 +52,6 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
         word_timestamps.append(word_info)
         # print(f"WordBoundary event: Text='{evt.text}', Offset={evt.audio_offset}, Duration={evt.duration}")
 
-    # Subscribe to the word boundary event
     speech_synthesizer.synthesis_word_boundary.connect(speech_synthesizer_word_boundary_cb)
 
     # Generate SSML with speech rate customization
@@ -76,9 +76,9 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print(f"Speech synthesized for text: [{text}]")
         print(f"Audio saved to: {audio_file_path}")
-        model = stable_whisper.load_model('base')
-        result = model.transcribe(audio_file_path)
-        result.to_srt_vtt(srt_path, segment_level=False)
+        # model = stable_whisper.load_model('base')
+        # result = model.transcribe(audio_file_path)
+        # result.to_srt_vtt(srt_path, segment_level=False)
 
 
     elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:
@@ -91,6 +91,6 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
         return None, None
 
     # Return the path of the saved audio file and the word timestamps
-    return audio_file_path, srt_path
+    return audio_file_path, word_timestamps
 
 

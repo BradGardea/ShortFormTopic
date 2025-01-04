@@ -108,7 +108,9 @@ def extract_text_posts(driver, existing_ids):
 
         paragraphs = post.find_elements(By.TAG_NAME, 'p')
         content = "\n".join([para.get_attribute('innerText').strip() for para in paragraphs if para.get_attribute('innerText').strip()])
-
+        post_type = 'text'
+        if "AITA" or "WIBTA" in title:
+            post_type = "AITA"
         new_post = {
             'author': author,
             'title': title,
@@ -118,7 +120,7 @@ def extract_text_posts(driver, existing_ids):
             'permalink': permalink,
             'content': content,
             'id': post_id,
-            'post_type': 'text'
+            'post_type': post_type
         }
 
         new_posts.append(new_post)
@@ -284,10 +286,10 @@ def run_scrapers(interval=30):
             # Start the scraper tasks
             stop_event.clear()  # Ensure stop event is clear at the start
             future1 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/AmItheAsshole/", existing_ids, "text", interval, stop_event)
-            future2 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/perfectloops/", existing_ids, "video", interval, stop_event)
-            future3 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/oddlysatisfying/", existing_ids, "video", interval, stop_event)
-            future4 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/Satisfyingasfuck/", existing_ids, "video", interval, stop_event)
-            future5 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/mildlyinfuriating/", existing_ids, "text", interval, stop_event)
+            # future2 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/perfectloops/", existing_ids, "video", interval, stop_event)
+            # future3 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/oddlysatisfying/", existing_ids, "video", interval, stop_event)
+            # future4 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/Satisfyingasfuck/", existing_ids, "video", interval, stop_event)
+            # future5 = executor.submit(scrape_subreddit_with_timeout, "https://www.reddit.com/r/mildlyinfuriating/", existing_ids, "text", interval, stop_event)
 
 
             # Wait for the specified interval
@@ -299,7 +301,7 @@ def run_scrapers(interval=30):
             logging.info("Stopping scrapers...")
 
             # Wait for all scraper threads to complete
-            wait([future1, future2, future3, future4, future5])
+            wait([future1])
             logging.info("All scrapers have finished. Returning control to the main thread.")
 
         # Break out of the while loop to return control to the main thread
