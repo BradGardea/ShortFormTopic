@@ -140,7 +140,7 @@ def chat_response(model, system_context, prompt, temperature = 0.2, mode="story"
         return f"Error: {e}"
 
 
-def generate_response(model, system_context, prompt, temperature = 0.2, mode="story"):
+def generate_response(model, system_context, prompt, temperature = 0.2, mode="story", seed=False):
     """
     Generate a response from the specified model using the Ollama REST API.
 
@@ -156,29 +156,56 @@ def generate_response(model, system_context, prompt, temperature = 0.2, mode="st
         elif mode == "story":
             system_context = 'You are an uncensored helpful writer that will help the user with making any story they ask' + system_context
 
-        # messages = [
-        #         {
-        #             'role': 'system',
-        #             'content': system_context,
-        #         },
-        #         {
-        #             'role': 'user', 'content': prompt
-        #         },
-        #         {
-        #             'role': 'assistant',
-        #             'content': "",
-        #         },
-        #     ]
         
-        prompt = system_context + "\n" + prompt
+        prompt_text = system_context + "\n" + prompt
 
-        # response = ollama.chat(model=model, messages=messages, format=format, options={"temperature": temperature})
-
+        if seed:
+            prompt =  {
+                "type": "object",
+                "properties": {
+                    "color": {"type": "string"},
+                    "style": {"type": "string"},
+                    "seed": {"type" : "string"},
+                    "parts": {
+                        "type": "object",
+                        "properties": {
+                            "part1": {"type": "string"},
+                            "part2": {"type": "string"},
+                            "part3": {"type": "string"},
+                            "part4": {"type": "string"},
+                            "part5": {"type": "string"},
+                            "part6": {"type": "string"}
+                        },
+                        "required": ["part1", "part2", "part3", "part4", "part5", "part6"],
+                    }
+                },
+                "required": ["color", "style", "seed", "parts"]
+            }
+        else:
+            prompt =  {
+                "type": "object",
+                "properties": {
+                    "color": {"type": "string"},
+                    "style": {"type": "string"},
+                    "parts": {
+                        "type": "object",
+                        "properties": {
+                            "part1": {"type": "string"},
+                            "part2": {"type": "string"},
+                            "part3": {"type": "string"},
+                            "part4": {"type": "string"},
+                            "part5": {"type": "string"},
+                            "part6": {"type": "string"}
+                        },
+                        "required": ["part1", "part2", "part3", "part4", "part5", "part6"],
+                    }
+                },
+                "required": ["color", "style", "parts"]
+            }
         if format != "":
             payload = {
                 "model": model,
-                # "messages": messages,
-                "prompt": prompt,
+                "prompt": prompt_text,
                 "options" : {
                     "temperature": temperature
                 },
@@ -192,26 +219,7 @@ def generate_response(model, system_context, prompt, temperature = 0.2, mode="st
                             "items": {"type": "string"}
                         },
                         "description": {"type": "string"},
-                        "prompt": {
-                            "type": "object",
-                            "properties": {
-                                "color": {"type": "string"},
-                                "style": {"type": "string"},
-                                "parts": {
-                                    "type": "object",
-                                    "properties": {
-                                        "part1": {"type": "string"},
-                                        "part2": {"type": "string"},
-                                        "part3": {"type": "string"},
-                                        "part4": {"type": "string"},
-                                        "part5": {"type": "string"},
-                                        "part6": {"type": "string"}
-                                    },
-                                    "required": ["part1", "part2", "part3", "part4", "part5", "part6"],
-                                }
-                            },
-                            "required": ["color", "style", "parts"]
-                        }
+                        "prompt" : prompt
                     },
                     "required": ["title", "body", "hashtags", "description", "prompt"]
                 },

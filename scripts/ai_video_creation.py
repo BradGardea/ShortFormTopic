@@ -121,11 +121,12 @@ def run_process(story_obj, process_id, part_index, full_comfy_path, gpu_id):
         python_path, script_path,
         "--cuda-device", str(gpu_id),
         "--id", str(process_id),
-        "--prompt", f"In the style of {style} with {color} {part}",
+        "--prompt", f"Using realisitic characters and scenery in the artstyle similar to Shakespear's 'Hamlet' play with {color} {part}",
         "--part-index", str(part_index),
         "--fps", "2",
-        "--frames", "42",
-        "--steps", "60",
+        "--frames", "55",
+        "--steps", "30",
+        "--initial-frame-prompt", "In the style of realistic contemporary art" + {story_obj.get("prompt", {}).get("seed", "a magestic sceen unfolds")}
     ]   
     try:
         process = subprocess.Popen(cmd, cwd=comfy_path, text=True)

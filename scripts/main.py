@@ -506,11 +506,13 @@ def main(title = None, content = None):
                 
                 Modify it so that:
 
-                "style" describes what kind of film to take inspiration from.
+                "style" describes an example of a film to take inspiration from.
                 For example "style" should look like: "A disney film from the 90s" or "A pixar film" or "A BBC telenovela".
                 "color" should be a list of adjectives that describe the mood, appearance of the characters and vibe that a film adaptation of your story would have using different accents, hues tones etc.
                 For example "color" should look like: "color": "A palette dominated by deep, inky ocean blues that convey the vastness and mystery of the sea, juxtaposed with stark, almost blinding whites to capture the ethereal presence of the whale and the misty horizon. Flashes of vibrant crimson punctuate the scenes, symbolizing danger, life, and the visceral reality of the hunt. The colors shift subtly with the changing light of day, from muted grays of morning mist to the fiery oranges and purples of dusk, evoking a sense of time and the relentless passage of the hunt.",
-
+                
+                "seed" must be a short prompt that will be used to generate an image that will represent the art style and appearance of the characters in the story. 
+                The prompt should be short and should be a snapshot of the very first moment of the story. Describe the appearance of the main character (no personal details only gender, height, age etc. ), the colors and tones to use and the environment the charcater is in. 
                 
                 Each part within "parts" should be expressed so that a text to video model can create a detailed and comphrensive scene.
                 Each of the parts have no context of the previous ones, each part must fully describe the characters appearance, interactions as well as the environment and actions. 
@@ -518,7 +520,7 @@ def main(title = None, content = None):
                 Follow the provided schema for JSON
                 """ % json.dumps(obj)
 
-                formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.63, mode="formatted")
+                formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.63, mode="formatted", seed=True)
                 obj = json.loads(formatted)
                 #endregion
                

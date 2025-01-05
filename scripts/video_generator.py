@@ -10,6 +10,7 @@ import numpy as np
 import math
 from moviepy.video.tools.segmenting import findObjects
 import pysrt
+import re
 
 
 
@@ -359,6 +360,9 @@ def calculate_black_pixel_percentage(frame, rgb_threshold=(0, 0, 0)):
 
     return (black_pixel_count / total_pixels) * 100
 
+
+#region old
+
 # def video_has_too_many_black_pixels(video_clip, max_frames=10, threshold=20, moving_avg_window=5):
 #     """
 #     Check if a video has too many black pixels using a moving average.
@@ -393,93 +397,154 @@ def calculate_black_pixel_percentage(frame, rgb_threshold=(0, 0, 0)):
 
 #     return False
 
-def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos", mode="default", videos=None):
-    """ 
-    Select videos based on mode, check for black pixel content, and trim or loop them to fit the needed duration.
+# def select_and_trim_videos(duration_needed, video_folder="data/satisfying_videos", mode="default", videos=None):
+#     """ 
+#     Select videos based on mode, check for black pixel content, and trim or loop them to fit the needed duration.
     
-    Modes:
-    - default: Randomly select videos from 'loops' and 'regular' folders.
-    - custom: Use the provided list of videos, loop each equally to fit the required duration.
-    """
-    # Handle 'custom' mode
-    if mode == "custom":
-        if not videos or len(videos) == 0:
-            logging.error("Custom mode requires a non-empty list of videos.")
-            return None
+#     Modes:
+#     - default: Randomly select videos from 'loops' and 'regular' folders.
+#     - custom: Use the provided list of videos, loop each equally to fit the required duration.
+#     """
+#     # Handle 'custom' mode
+#     if mode == "custom":
+#         if not videos or len(videos) == 0:
+#             logging.error("Custom mode requires a non-empty list of videos.")
+#             return None
         
-        # Calculate equal looping duration for each video
-        num_videos = len(videos)
-        duration_per_video = duration_needed / num_videos
+#         # Calculate equal looping duration for each video
+#         num_videos = len(videos)
+#         duration_per_video = duration_needed / num_videos
 
-        selected_videos = []
-        for video_file in videos:
-            try:
-                video_clip = VideoFileClip(video_file)
-                video_clip = loop_video_clip(video_clip, duration_per_video)
-                selected_videos.append(video_clip)
-            except Exception as e:
-                logging.error(f"Error processing video '{video_file}': {e}")
-                return None
+#         selected_videos = []
+#         for video_file in videos:
+#             try:
+#                 video_clip = VideoFileClip(video_file)
+#                 video_clip = loop_video_clip(video_clip, duration_per_video)
+#                 selected_videos.append(video_clip)
+#             except Exception as e:
+#                 logging.error(f"Error processing video '{video_file}': {e}")
+#                 return None
 
-        return selected_videos
+#         return selected_videos
 
-    # Default behavior for 'default' mode
-    # Get all video files from both 'loops' and 'regular' folders
-    video_files = []
-    for subfolder in ['loops', 'regular']:
-        folder_path = os.path.join(video_folder, subfolder)
-        if os.path.exists(folder_path):
-            video_files.extend([os.path.join(folder_path, f) 
-                                for f in os.listdir(folder_path) 
-                                if f.endswith(('.mp4', '.mkv', '.mov'))])
+#     # Default behavior for 'default' mode
+#     # Get all video files from both 'loops' and 'regular' folders
+#     video_files = []
+#     for subfolder in ['loops', 'regular']:
+#         folder_path = os.path.join(video_folder, subfolder)
+#         if os.path.exists(folder_path):
+#             video_files.extend([os.path.join(folder_path, f) 
+#                                 for f in os.listdir(folder_path) 
+#                                 if f.endswith(('.mp4', '.mkv', '.mov'))])
     
+#     selected_videos = []
+#     total_duration = 0
+
+#     while total_duration < duration_needed and video_files:
+#         max_checks = 100
+#         curr_checks = 0
+#         video_clip = None
+
+#         while video_clip is None and curr_checks < max_checks:
+#             try:
+#                 video_file = random.choice(video_files)
+#                 video_clip = VideoFileClip(video_file)
+#                 video_duration = video_clip.duration
+                
+#                 # Check for too many black pixels
+#                 if video_has_too_many_black_pixels(video_clip):
+#                     logging.info(f"Video '{video_file}' rejected due to high black pixel content.")
+#                     video_clip = None
+#                     continue
+
+#                 logging.info(f"Video '{video_file}' selected.")
+#             except Exception as e:
+#                 logging.error(f"Error processing video '{video_file}': {e}")
+#                 video_clip = None
+
+#             curr_checks += 1
+
+#         if video_clip is None:
+#             logging.error("Max attempts reached. Unable to find a valid video.")
+#             break
+
+#         # Check if the video is from the 'loops' folder and loop it if it's less than 20 seconds
+#         if 'loops' in video_file and video_clip.duration < 20:
+#             video_clip = loop_video_clip(video_clip, 20)
+
+#         if total_duration + video_clip.duration <= duration_needed:
+#             selected_videos.append(video_clip)
+#             total_duration += video_clip.duration
+#         else:
+#             # If adding this video exceeds the duration needed, trim it
+#             trimmed_video = video_clip.subclip(0, duration_needed - total_duration)
+#             selected_videos.append(trimmed_video)
+#             total_duration += trimmed_video.duration
+#             trimmed_video.close()
+#             break  # Stop once we've reached the required duration
+
+#     return selected_videos
+
+#endregion
+
+def resize_videos(duration_needed, target_folder="data/temp"):
+    """
+    Select and concatenate videos from the 'temp' folder in order, 
+    sorted by the first number in their name, to match the desired duration.
+    """
+    # Get all video files in the temp folder
+    if not os.path.exists(target_folder):
+        logging.error(f"Folder '{target_folder}' does not exist.")
+        return None
+
+    video_files = [
+        os.path.join(target_folder, f)
+        for f in os.listdir(target_folder)
+        if f.endswith(('.mp4', '.mkv', '.mov'))
+    ]
+
+    if not video_files:
+        logging.error("No valid video files found in the temp folder.")
+        return None
+
+    # Sort video files by the first number in their name
+    def extract_number(filename):
+        match = re.search(r"(\d+)", os.path.basename(filename))
+        return int(match.group(1)) if match else float('inf')
+
+    video_files.sort(key=extract_number)
+
+    # Concatenate videos in order
     selected_videos = []
     total_duration = 0
 
-    while total_duration < duration_needed and video_files:
-        max_checks = 100
-        curr_checks = 0
-        video_clip = None
+    for video_file in video_files:
+        try:
+            video_clip = VideoFileClip(video_file)
+            video_duration = video_clip.duration
 
-        while video_clip is None and curr_checks < max_checks:
-            try:
-                video_file = random.choice(video_files)
-                video_clip = VideoFileClip(video_file)
-                video_duration = video_clip.duration
-                
-                # Check for too many black pixels
-                if video_has_too_many_black_pixels(video_clip):
-                    logging.info(f"Video '{video_file}' rejected due to high black pixel content.")
-                    video_clip = None
-                    continue
+            if total_duration + video_duration <= duration_needed:
+                selected_videos.append(video_clip)
+                total_duration += video_duration
+            else:
+                # Trim the last clip to fit the remaining duration
+                trimmed_clip = video_clip.subclip(0, duration_needed - total_duration)
+                selected_videos.append(trimmed_clip)
+                total_duration += trimmed_clip.duration
+                trimmed_clip.close()
+                break  # Stop once the required duration is met
 
-                logging.info(f"Video '{video_file}' selected.")
-            except Exception as e:
-                logging.error(f"Error processing video '{video_file}': {e}")
-                video_clip = None
+        except Exception as e:
+            logging.error(f"Error processing video '{video_file}': {e}")
 
-            curr_checks += 1
-
-        if video_clip is None:
-            logging.error("Max attempts reached. Unable to find a valid video.")
-            break
-
-        # Check if the video is from the 'loops' folder and loop it if it's less than 20 seconds
-        if 'loops' in video_file and video_clip.duration < 20:
-            video_clip = loop_video_clip(video_clip, 20)
-
-        if total_duration + video_clip.duration <= duration_needed:
-            selected_videos.append(video_clip)
-            total_duration += video_clip.duration
-        else:
-            # If adding this video exceeds the duration needed, trim it
-            trimmed_video = video_clip.subclip(0, duration_needed - total_duration)
-            selected_videos.append(trimmed_video)
-            total_duration += trimmed_video.duration
-            trimmed_video.close()
-            break  # Stop once we've reached the required duration
-
-    return selected_videos
+    # Concatenate all selected videos
+    if selected_videos:
+        final_video = concatenate_videoclips(selected_videos)
+        logging.info(f"Final video created with total duration: {final_video.duration}")
+        return final_video
+    else:
+        logging.error("No valid videos were selected.")
+        return None
 
 def add_overlay_video(base_video, overlay_video_path, start_time, output_video, final_audio=None):
     """
@@ -572,7 +637,7 @@ def combine_audio_and_video(full_audio_path, video_clips, full_timings, full_tex
 
     return True
 
-def create_combined_video_for_post(post, full, output_folder="out/", video_clips=[""]):
+def create_combined_video_for_post(post, full, output_folder="out/", video_clips_path=""):
     """Create a combined video for the post using the video generator."""
     # total_audio_duration = get_audio_duration(full[0])
     # # Select random videos to match the duration of the combined audio
@@ -582,6 +647,7 @@ def create_combined_video_for_post(post, full, output_folder="out/", video_clips
 
     output_video_path = os.path.join(output_folder, f"{post['id']}_final_video.mp4")
     output_story_path = os.path.join(output_folder, f"{post['id']}_story.txt")
+
     if combine_audio_and_video(
         # title_audio_file=title_tts_audio_file,
         # content_audio_file=content_tts_audio_file,
