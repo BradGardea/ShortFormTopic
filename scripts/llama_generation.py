@@ -3,7 +3,6 @@ import requests
 import time
 import os
 import json
-import ollama
 import pandas as pd  
 from io import StringIO
 
@@ -174,9 +173,28 @@ def generate_response(model, system_context, prompt, temperature = 0.2, mode="st
                             "part3": {"type": "string"},
                             "part4": {"type": "string"},
                             "part5": {"type": "string"},
-                            "part6": {"type": "string"}
+                            "part6": {"type": "string"},
+                            "part7": {"type": "string"},
+                            "part8": {"type": "string"},
+                            "part9": {"type": "string"},
+                            "part10": {"type": "string"},
+                            "part11": {"type": "string"},
+                            "part12": {"type": "string"}
                         },
-                        "required": ["part1", "part2", "part3", "part4", "part5", "part6"],
+                        "required": [
+                            "part1", 
+                            "part2", 
+                            "part3", 
+                            "part4", 
+                            "part5", 
+                            "part6", 
+                            "part7", 
+                            "part8", 
+                            "part9", 
+                            "part10", 
+                            "part11", 
+                            "part12"
+                        ]
                     }
                 },
                 "required": ["color", "style", "seed", "parts"]
@@ -195,9 +213,28 @@ def generate_response(model, system_context, prompt, temperature = 0.2, mode="st
                             "part3": {"type": "string"},
                             "part4": {"type": "string"},
                             "part5": {"type": "string"},
-                            "part6": {"type": "string"}
+                            "part6": {"type": "string"},
+                            "part7": {"type": "string"},
+                            "part8": {"type": "string"},
+                            "part9": {"type": "string"},
+                            "part10": {"type": "string"},
+                            "part11": {"type": "string"},
+                            "part12": {"type": "string"}
                         },
-                        "required": ["part1", "part2", "part3", "part4", "part5", "part6"],
+                        "required": [
+                            "part1", 
+                            "part2", 
+                            "part3", 
+                            "part4", 
+                            "part5", 
+                            "part6", 
+                            "part7", 
+                            "part8", 
+                            "part9", 
+                            "part10", 
+                            "part11", 
+                            "part12"
+                        ]
                     }
                 },
                 "required": ["color", "style", "parts"]

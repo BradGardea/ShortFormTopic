@@ -14,6 +14,18 @@ import torch
 from torch import nn
 import subprocess
 
+from diffusers import (
+    StableDiffusionPipeline,
+    StableVideoDiffusionPipeline,
+    AutoPipelineForText2Image,
+    AutoPipelineForImage2Image,
+)
+from diffusers.utils import load_image, export_to_video
+from PIL import Image
+import torch
+import os
+import gc
+
 
 def execute_inference(input_video, output_video, multi=2):
     try:
@@ -44,8 +56,6 @@ def execute_inference(input_video, output_video, multi=2):
 
     except Exception as e:
         print(f"An error occurred while executing the subprocess: {e}")
-
-
 
 def interpolate_ai_video(input_path):
     # Define the transformation sequence
@@ -98,8 +108,6 @@ def interpolate_ai_video(input_path):
 
     print(f"Interpolation completed. Final video saved to: {final_output_path}")
 
-
-
 def run_process(story_obj, process_id, part_index, full_comfy_path, gpu_id):
     python_path = os.path.join(full_comfy_path, "python_embeded", "python.exe")
     comfy_path = os.path.join(full_comfy_path, "ComfyUI")
@@ -121,12 +129,12 @@ def run_process(story_obj, process_id, part_index, full_comfy_path, gpu_id):
         python_path, script_path,
         "--cuda-device", str(gpu_id),
         "--id", str(process_id),
-        "--prompt", f"Using realisitic characters and scenery in the artstyle similar to Shakespear's 'Hamlet' play with {color} {part}",
+        "--prompt", f"In the style of very realistic contemporary art film with detailed characters and faces, {part}",
         "--part-index", str(part_index),
         "--fps", "2",
-        "--frames", "55",
-        "--steps", "30",
-        "--initial-frame-prompt", "In the style of realistic contemporary art" + {story_obj.get("prompt", {}).get("seed", "a magestic sceen unfolds")}
+        "--frames", "61",
+        "--steps", "60",
+        # "--initial-frame-prompt", "In the style of realistic contemporary art" + str(story_obj.get("prompt", {}).get("seed", "a magestic sceen unfolds"))
     ]   
     try:
         process = subprocess.Popen(cmd, cwd=comfy_path, text=True)
@@ -146,7 +154,7 @@ def run_process(story_obj, process_id, part_index, full_comfy_path, gpu_id):
         print(f"Error running process for part {part_index}: {e}")
         return -1  # Failure return value
 
-def generate_ai_video(story_obj, process_id, full_comfy_path=r"D:\utils\ComfyUI_windows_portable", gpu_ids=(0, 1)):
+def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\ComfyUI_windows_portable", gpu_ids=(0, 1)):
     """
     Generate and upscale video using a script, running processes in parallel for prompt parts.
     
@@ -192,3 +200,109 @@ def generate_ai_video(story_obj, process_id, full_comfy_path=r"D:\utils\ComfyUI_
 
     print("All parts processed successfully.")
     return 0
+
+def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, video_fps=2, num_frames=14):
+ 
+    parts_obj = story_obj.get("prompt", {}).get("parts", {})
+    prompts = [parts_obj.get(f"part{i}", "") for i in range(1, len(parts_obj) + 1)]
+    if prompts[0].strip() == "":    
+        prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
+        "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
+        "Astronaut on a futuristic desert planet, surreal colors, artistic, realistic, 8k"]
+
+    seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + "realistic"
+    
+    os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+    output_folder = f"data/out/{process_id}"
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    # Load the initial pipeline for generating the seed image
+    textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        torch_dtype=torch.float16,
+        variant="fp16",
+        use_safetensors=True,
+        token=""
+    ).to("cuda:0")
+
+    # Generate the initial seed image if not provided
+    if not seed_image_path:
+        print("Generating initial seed image from: ", seed_prompt)
+        seed_image = textandimage_pipeline(seed_prompt).images[0]
+        seed_image_path = os.path.join(output_folder, "seed.png")
+        seed_image.save(seed_image_path)
+        print("Saved to: ", seed_image_path)
+    else:
+        print("Using provided seed image...")
+        seed_image = Image.open(seed_image_path)
+
+    # Load the video diffusion pipeline
+    video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
+        "stabilityai/stable-video-diffusion-img2vid",
+        torch_dtype=torch.float16,
+        variant="fp16",
+        token=""
+    ).to("cuda:1")
+    # video_pipeline.enable_model_cpu_offload()
+    # video_pipeline.unet.enable_forward_chunking()
+
+    current_image = seed_image
+    for idx, prompt in enumerate(prompts):
+        print(f"Processing stage {idx + 1}/{len(prompts)} with prompt: {prompt}")
+
+        # Adjust input image resolution for image-to-video (576x1024)
+        resized_image = current_image.resize((1024, 576))
+
+        # Create the video from the current image
+        generator = torch.manual_seed(32592559)  # Use a fixed seed for reproducibility
+        frames = video_pipeline(
+            resized_image,
+            decode_chunk_size=4,
+            generator=generator,
+            motion_bucket_id=180,
+            noise_aug_strength=0.1,
+            num_frames=num_frames,
+        ).frames[0]
+
+        video_path = os.path.join(output_folder, f"video_{idx + 1}.mp4")
+        export_to_video(frames, video_path, fps=video_fps)
+        print(f"Video saved to {video_path}")
+
+        # Extract the last frame from the video
+        last_frame = frames[-1]
+
+        # Save the last frame as an image
+        last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
+        last_frame.resize((1024, 1024)).save(last_frame_path)
+
+        print(f"Resized last frame saved as an image at {last_frame_path}")
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        # Update the pipeline to use XL model for image-to-image
+        # Resize the last frame to 1024x1024 for image-to-image processing
+
+        # Generate the next image using the resized frame and prompt
+        if idx < len(prompts) - 1:
+            current_image = textandimage_pipeline(
+                prompt,
+                image=last_frame.resize((1024, 1024)),
+                strength=0.8,
+                guidance_scale=10.5
+            ).images[0]
+
+            new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
+            current_image.resize((1024, 576)).save(new_seed_path)
+
+            print(f"Resized new frame saved as an image at {new_seed_path}")
+
+
+
+    print("Process completed!")
+
+
+    print("All parts processed successfully.")
+    return 0
+

@@ -1,16 +1,26 @@
+import os
+import sys
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(os.path.dirname(abspath))
+sys.path.insert(0, dname)  # Add parent directory to Python module search path
+
+os.chdir(dname)
+
+print("Current working dir", os.getcwd())
 import random
 import logging
 import time
 import threading
-from reddit import run_scrapers
-from azure_synth import get_tts
-from video_generator import create_combined_video_for_post
 import pandas as pd
-import os
 import uuid
-from llama_generation import generate_response, chat_response
-from ai_video_creation import generate_ai_video, interpolate_ai_video
 import json
+
+from scripts.reddit import run_scrapers
+from scripts.azure_synth import get_tts
+from scripts.video_generator import create_combined_video_for_post
+from scripts.llama_generation import generate_response, chat_response
+from scripts.ai_video_creation import generate_ai_video_stable_diffusion, interpolate_ai_video
+
 
 
 
@@ -506,21 +516,36 @@ def main(title = None, content = None):
                 
                 Modify it so that:
 
+                "body" is a much more detailed and includes twists and and turn, it should not be short, make the story quite long. Also, it should be written from a characters perspective so you can use "I", "Me" etc.
+
                 "style" describes an example of a film to take inspiration from.
                 For example "style" should look like: "A disney film from the 90s" or "A pixar film" or "A BBC telenovela".
                 "color" should be a list of adjectives that describe the mood, appearance of the characters and vibe that a film adaptation of your story would have using different accents, hues tones etc.
                 For example "color" should look like: "color": "A palette dominated by deep, inky ocean blues that convey the vastness and mystery of the sea, juxtaposed with stark, almost blinding whites to capture the ethereal presence of the whale and the misty horizon. Flashes of vibrant crimson punctuate the scenes, symbolizing danger, life, and the visceral reality of the hunt. The colors shift subtly with the changing light of day, from muted grays of morning mist to the fiery oranges and purples of dusk, evoking a sense of time and the relentless passage of the hunt.",
                 
-                "seed" must be a short prompt that will be used to generate an image that will represent the art style and appearance of the characters in the story. 
-                The prompt should be short and should be a snapshot of the very first moment of the story. Describe the appearance of the main character (no personal details only gender, height, age etc. ), the colors and tones to use and the environment the charcater is in. 
+                "seed" must be a small sized prompt that will be used to generate an image that will represent the art style and appearance of the characters in the story. 
+                each of the parts must be a small sized prompt that explains very simply what is going on in the scene in a still frame, it should include a character (only decsription of them) and an environment.
+                There are 12 parts in total so each of these images must illustrate 1/12 of the story.
+
+                An exampl of a prompt for seed:
+                seed: "Astronaut in a red suit riding a horse, pale colors, detailed, realistic 8k.
+
+                Ensure each part is a still image description, meaning there should be no movemenet described. 
+                ENSURE THAT EACH PART IS INDEPENDENT AND THAT CHARACTERS' APPEARANCE, RACE, GENDER, CLOTHING AND ENVIRONMENT IS DESCRIBED EACH TIME.
                 
-                Each part within "parts" should be expressed so that a text to video model can create a detailed and comphrensive scene.
-                Each of the parts have no context of the previous ones, each part must fully describe the characters appearance, interactions as well as the environment and actions. 
-                Each of the characters must be incredibly detailed, especially their faces height and age. The environment must be clear and descriptive.
+                Examples of the structure for the parts is as follows:
+                "Astronaut with a blue visor in a jungle, cold color palette, muted colors, detailed, realistic, 8k" INSTEAD OF "Bob the astronaut in a jungle",
+                "Astronaut with a blue visor exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
+                "Astronaut with a blue visor on a futuristic desert planet, surreal colors, artistic, realistic, 8k",
+
+                Notice how every time, the chracter's appearance is fully described.
+
+
+
                 Follow the provided schema for JSON
                 """ % json.dumps(obj)
 
-                formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.63, mode="formatted", seed=True)
+                formatted = generate_response("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.63, mode="formatted", seed=True)
                 obj = json.loads(formatted)
                 #endregion
                
@@ -531,9 +556,9 @@ def main(title = None, content = None):
                 write_json_to_folder(obj, "data/stories", gen_id + ".json")
 
                 try:
-                    if generate_ai_video(obj, gen_id) < 0:
+                    if generate_ai_video_stable_diffusion(obj, gen_id) < 0:
                         continue
-                    path = os.path.join(r"D:\utils\ComfyUI_windows_portable", "ComfyUI", "output", gen_id) 
+                    path = os.path.join("data", gen_id, "out") 
                     videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
                     for video in videos:
                         interpolate_ai_video(os.path.join(path, video))
@@ -574,12 +599,13 @@ def main(title = None, content = None):
 
 
 if __name__ == "__main__":
-    abspath = os.path.abspath(__file__)
-    dname = os.path.dirname(os.path.dirname(abspath))
-    os.chdir(dname)
 
-
-    main()
+    # main()
+    path = os.path.join("data", "out", "17d2854d-59bf-444a-a23a-15e762a6d3bd") 
+    videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+    sorted_videos = sorted(videos, key=lambda x: int(x.split("_")[1].split(".")[0]))
+    for video in sorted_videos:
+        interpolate_ai_video(os.path.join(path, video))
 
 
     # directory = "data/stories"  # Replace with your directory path
