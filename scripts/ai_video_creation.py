@@ -37,6 +37,7 @@ def execute_inference(input_video, output_video, multi=2):
             f"--output={output_video}",
             f"--no_audio"
         ]
+        print("Running")
 
         process = subprocess.Popen(
             command,
@@ -46,6 +47,15 @@ def execute_inference(input_video, output_video, multi=2):
             text=True,
             # env=env,
         )
+
+        stdout, stderr = process.communicate()
+
+        # Print the outputs
+        print("Standard Output:")
+        print(stdout)
+
+        print("\nStandard Error:")
+        print(stderr)
 
         if process.returncode == 0:
             print("Subprocess completed successfully.")
@@ -59,7 +69,7 @@ def execute_inference(input_video, output_video, multi=2):
 
 def interpolate_ai_video(input_path):
     # Define the transformation sequence
-    transformation_sequence = [2, 2, 4, 4]  # The sequence of multipliers
+    transformation_sequence = [2, 2, 4, 4, 2]  # The sequence of multipliers
     initial_fps = 2
     current_fps = initial_fps
 
@@ -204,13 +214,13 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, video_fps=2, num_frames=14):
  
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
-    prompts = [parts_obj.get(f"part{i}", "") for i in range(1, len(parts_obj) + 1)]
+    prompts = [parts_obj.get(f"part{i}", "") + " very realistic." for i in range(1, len(parts_obj) + 1)]
     if prompts[0].strip() == "":    
         prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
         "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
         "Astronaut on a futuristic desert planet, surreal colors, artistic, realistic, 8k"]
 
-    seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + "realistic"
+    seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + " very realistic."
     
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     output_folder = f"data/out/{process_id}"

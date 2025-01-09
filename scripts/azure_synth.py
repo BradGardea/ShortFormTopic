@@ -76,9 +76,9 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
         print(f"Speech synthesized for text: [{text}]")
         print(f"Audio saved to: {audio_file_path}")
-        # model = stable_whisper.load_model('base')
-        # result = model.transcribe(audio_file_path)
-        # result.to_srt_vtt(srt_path, segment_level=False)
+        model = stable_whisper.load_hf_whisper('base')
+        result = model.transcribe(os.path.abspath(audio_file_path))
+        result.to_srt_vtt(srt_path, segment_level=False)
 
 
     elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:
@@ -91,6 +91,10 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
         return None, None
 
     # Return the path of the saved audio file and the word timestamps
-    return audio_file_path, word_timestamps
+    return audio_file_path, srt_path
 
 
+# if __name__ == "__main__":
+#     model = stable_whisper.load_hf_whisper('base')
+#     result = model.transcribe(os.path.abspath(r"data/TTS/17d2854d-59bf-444a-a23a-15e762a6d3bd/full.mp3"))
+#     result.to_srt_vtt(r"data/TTS/17d2854d-59bf-444a-a23a-15e762a6d3bd/out.srt", segment_level=False)
