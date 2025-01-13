@@ -208,7 +208,7 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, video_fps=2, num_frames=14):
  
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
-    prompts = [parts_obj.get(f"part{i}", "") + " very realistic 8k." for i in range(1, len(parts_obj) + 1)]
+    prompts = [parts_obj.get(f"part{i}", "") + " very realistic." for i in range(1, len(parts_obj) + 1)]
     if prompts[0].strip() == "":    
         prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
         "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
@@ -263,7 +263,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         generator = torch.manual_seed(3259255)  
         frames = video_pipeline(
             resized_image,
-            decode_chunk_size=4,
+            decode_chunk_size=6,
             generator=generator,
             motion_bucket_id=240,
             noise_aug_strength=0.2,
@@ -274,12 +274,12 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         export_to_video(frames, video_path, fps=video_fps)
         print(f"Video saved to {video_path}")
 
-        # last_frame = frames[-1]
+        last_frame = frames[-1]
 
-        # last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
-        # last_frame.resize((1024, 1024)).save(last_frame_path)
+        last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
+        last_frame.resize((1024, 1024)).save(last_frame_path)
 
-        # print(f"Resized last frame saved as an image at {last_frame_path}")
+        print(f"Resized last frame saved as an image at {last_frame_path}")
 
         gc.collect()
         torch.cuda.empty_cache()
