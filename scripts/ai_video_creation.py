@@ -19,6 +19,8 @@ from diffusers import (
     StableVideoDiffusionPipeline,
     AutoPipelineForText2Image,
     AutoPipelineForImage2Image,
+    I2VGenXLPipeline,
+    CogVideoXImageToVideoPipeline
 )
 from diffusers.utils import load_image, export_to_video
 from PIL import Image
@@ -208,14 +210,23 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, video_fps=2, num_frames=14):
  
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
-    prompts = [parts_obj.get(f"part{i}", "") + " very realistic 8k." for i in range(1, len(parts_obj) + 1)]
-    if prompts[0].strip() == "":    
-        prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
-        "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
-        "Astronaut on a futuristic desert planet, surreal colors, artistic, realistic, 8k"]
+    prompts = [
+        {
+            "seed": parts_obj.get(f"part{i}", {}).get("seed", ""),
+            "motion": parts_obj.get(f"part{i}", {}).get("motion", "")
+        }
+        for i in range(1, len(parts_obj) + 1)
+    ]
+    
+    if not prompts or not prompts[0]["seed"].strip():
+        prompts = [
+            {"seed": "Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k", "motion": "Astronaut walking through dense jungle with mist and glowing plants"},
+            {"seed": "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k", "motion": "Astronaut swimming through glowing coral and fish in an underwater city"},
+            {"seed": "Astronaut on a futuristic desert planet, surreal colors, artistic, realistic, 8k", "motion": "Astronaut walking on a surreal desert with glowing sands and strange structures"}
+        ]
 
     seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + " very realistic 8k."
-    
+
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     output_folder = f"data/out/{process_id}"
     if not os.path.exists(output_folder):
@@ -241,55 +252,57 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         print("Using provided seed image...")
         seed_image = Image.open(seed_image_path)
 
-    # Load the video diffusion pipeline
-    video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
-        "stabilityai/stable-video-diffusion-img2vid",
-        torch_dtype=torch.float16,
-        variant="fp16",
-        token=""
+    # Load the I2VGenXLPipeline for image-to-video
+    video_pipeline = CogVideoXImageToVideoPipeline.from_pretrained(
+    "THUDM/CogVideoX-5b-I2V",
+    torch_dtype=torch.bfloat16
     ).to("cuda:1")
-    # video_pipeline.enable_model_cpu_offload()
-    # video_pipeline.unet.enable_forward_chunking()
 
     current_image = seed_image
-    for idx, prompt in enumerate(prompts):
-        print(f"Processing stage {idx + 1}/{len(prompts)} with prompt: {prompt}")
+    negative_prompt = "Distorted, discontinuous, Ugly, blurry, low resolution, motionless, static, disfigured, disconnected limbs, Ugly faces, incomplete arms"
+
+    for idx, stage in enumerate(prompts):
+        seed = stage["seed"]
+        motion = stage["motion"]
+
+        print(f"Processing stage {idx + 1}/{len(prompts)} with seed: {seed} and motion: {motion}")
 
         gc.collect()
         torch.cuda.empty_cache()
 
         resized_image = current_image.resize((1024, 576))
 
-        generator = torch.manual_seed(3259255)  
+        # Generate video frames
+        generator = torch.manual_seed(8888)
         frames = video_pipeline(
-            resized_image,
-            decode_chunk_size=4,
-            generator=generator,
-            motion_bucket_id=240,
-            noise_aug_strength=0.2,
-            num_frames=num_frames,
-        ).frames[0]
+        prompt=motion,
+        image=resized_image,
+        num_videos_per_prompt=1,
+        num_inference_steps=50,
+        num_frames=49,
+        guidance_scale=6,
+        generator=torch.Generator(device="cuda").manual_seed(42),
+    ).frames[0]
 
-        video_path = os.path.join(output_folder, f"video_{idx + 1}.mp4")
-        export_to_video(frames, video_path, fps=video_fps)
+        video_path = os.path.join(output_folder, f"video_{idx + 1}.gif")
         print(f"Video saved to {video_path}")
 
-        # last_frame = frames[-1]
+        last_frame = frames[-1]
 
-        # last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
-        # last_frame.resize((1024, 1024)).save(last_frame_path)
+        last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
+        last_frame.resize((1024, 1024)).save(last_frame_path)
 
-        # print(f"Resized last frame saved as an image at {last_frame_path}")
+        print(f"Resized last frame saved as an image at {last_frame_path}")
 
         gc.collect()
         torch.cuda.empty_cache()
 
         if idx < len(prompts) - 1:
             current_image = textandimage_pipeline(
-                prompt,
-                # image=last_frame.resize((1024, 1024)),
+                seed,
+                image=last_frame.resize((1024, 1024)),
                 strength=0.8,
-                guidance_scale=9.5
+                guidance_scale=10.5
             ).images[0]
 
             new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
@@ -297,11 +310,44 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
             print(f"Resized new frame saved as an image at {new_seed_path}")
 
-
-
-    print("Process completed!")
-
+        print("Process completed!")
 
     print("All parts processed successfully.")
     return 0
+
+
+# Example usage of the generate_ai_video_stable_diffusion function
+story_obj = {
+    "prompt": {
+        "seed": "A serene landscape of a futuristic city at sunrise",
+        "parts": {
+            "part1": {
+                "seed": "Futuristic city skyline with tall glass buildings, warm hues, detailed, realistic, 8k",
+                "motion": "Birds flying gracefully through the glowing skyline with the sun rising in the background"
+            },
+            "part2": {
+                "seed": "A bustling marketplace with vibrant colors, detailed, realistic, 8k",
+                "motion": "People walking through the crowded marketplace, vendors calling out, vibrant goods on display"
+            },
+            "part3": {
+                "seed": "A tranquil forest with glowing mushrooms and serene ambience, detailed, realistic, 8k",
+                "motion": "Misty forest with glowing mushrooms pulsating light, trees swaying gently in the wind"
+            }
+        }
+    }
+}
+
+process_id = "example_project"
+seed_image_path = None # Optional: Provide a path if you have a specific seed image
+video_fps = 4  # Frames per second for the generated videos
+num_frames = 40  # Number of frames per video
+
+# Call the function
+generate_ai_video_stable_diffusion(
+    story_obj=story_obj,
+    process_id=process_id,
+    seed_image_path=seed_image_path,
+    video_fps=video_fps,
+    num_frames=num_frames
+)
 

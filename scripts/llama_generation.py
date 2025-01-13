@@ -180,7 +180,7 @@ def generate_response(model, system_context, prompt, temperature=0.2, mode="stor
         return f"Error: {e}"
 # Example usage
 if __name__ == "__main__":
-    model_name = "llama3.1:70b"
+    model_name = "gurubot/llama3-guru-uncensored:latest"
 
     try:
         story_system_context = """       
@@ -188,18 +188,17 @@ if __name__ == "__main__":
 
         AITA for not giving my younger brother my gaming console because he broke his?/
 
-        16M) have a younger brother, Jack (12M), who is notorious for being careless with his belongings. Last year, my parents got him a PlayStation 5, and he was thrilled. Unfortunately, he never took care of it properly. He would leave it on the floor, toss the controller around, and spill snacks everywhere while playing.
+        I (16M) have a younger brother, Jack (12M), who is notorious for being careless with his belongings. Last year, my parents got him a PlayStation 5, and he was thrilled. Unfortunately, he never took care of it properly. He would leave it on the floor, toss the controller around, and spill snacks everywhere while playing.
         A couple of weeks ago, he spilled soda all over the console, and it stopped working. My parents told him he wouldn’t get a new one because it was his responsibility to take care of it. Since then, he’s been begging to use my console (an Xbox Series X), but I’ve said no every time.
         Here’s the thing: I worked a summer job and saved up to buy my Xbox. I take excellent care of it because I paid for it myself. Jack got his PlayStation as a gift, so I feel like he didn’t value it the same way I value mine.
         Now Jack is calling me selfish and unfair. My parents are split. My dad says I’m right because it’s my console, and I shouldn’t have to share if I don’t want to. But my mom thinks I’m being too harsh on him and that I should “help him out” since he’s just a kid.
         I don’t trust him not to damage my Xbox, and I think this is a good lesson for him to learn about consequences. Still, my mom and Jack keep trying to guilt-trip me. Now I’m starting to wonder: Am I the a**hole for refusing to let him use my gaming console?"""
         
         story_prompt = """
-        Using only the structure and style of the story YOU created create a new story, based on the story of moby dick.
-        You WILL make any modifications to the story so that you may generate the story.
+        Using the only the style from the stories you created, make the story controversial and captivating, especially the introduction, ensure characters are adults. Use simple and vulgar language, how a redditor would tell a story.
         """
 
-        story = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+        story = generate_response(model_name, story_system_context, story_prompt, temperature=0.5, mode="story")
         print(f"Story response: {story}")
 
         formatting_system_context = """You are now a expert filmographer and understander who must provide perfect summaries and extract the actual story while being able to make detailed descriptions of a story in JSON."""
