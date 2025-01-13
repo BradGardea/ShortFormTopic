@@ -47,29 +47,23 @@ def execute_inference(input_video, output_video, multi=2):
             text=True,
             # env=env,
         )
+        output, err = process.communicate()
 
-        stdout, stderr = process.communicate()
+        print(output)
 
-        # Print the outputs
-        print("Standard Output:")
-        print(stdout)
-
-        print("\nStandard Error:")
-        print(stderr)
 
         if process.returncode == 0:
-            print("Subprocess completed successfully.")
             return 0
         else:
-            print(f"Subprocess failed with return code {process.returncode}.")
             return -1
+
 
     except Exception as e:
         print(f"An error occurred while executing the subprocess: {e}")
 
 def interpolate_ai_video(input_path):
     # Define the transformation sequence
-    transformation_sequence = [2, 2, 4, 4, 2]  # The sequence of multipliers
+    transformation_sequence = [2, 4, 4]  # The sequence of multipliers
     initial_fps = 2
     current_fps = initial_fps
 
@@ -214,13 +208,13 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, video_fps=2, num_frames=14):
  
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
-    prompts = [parts_obj.get(f"part{i}", "") + " very realistic." for i in range(1, len(parts_obj) + 1)]
+    prompts = [parts_obj.get(f"part{i}", "") + " very realistic 8k." for i in range(1, len(parts_obj) + 1)]
     if prompts[0].strip() == "":    
         prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
         "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
         "Astronaut on a futuristic desert planet, surreal colors, artistic, realistic, 8k"]
 
-    seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + " very realistic."
+    seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + " very realistic 8k."
     
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     output_folder = f"data/out/{process_id}"
@@ -261,17 +255,18 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
     for idx, prompt in enumerate(prompts):
         print(f"Processing stage {idx + 1}/{len(prompts)} with prompt: {prompt}")
 
-        # Adjust input image resolution for image-to-video (576x1024)
+        gc.collect()
+        torch.cuda.empty_cache()
+
         resized_image = current_image.resize((1024, 576))
 
-        # Create the video from the current image
-        generator = torch.manual_seed(32592559)  # Use a fixed seed for reproducibility
+        generator = torch.manual_seed(3259255)  
         frames = video_pipeline(
             resized_image,
             decode_chunk_size=4,
             generator=generator,
-            motion_bucket_id=180,
-            noise_aug_strength=0.1,
+            motion_bucket_id=240,
+            noise_aug_strength=0.2,
             num_frames=num_frames,
         ).frames[0]
 
@@ -279,28 +274,22 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         export_to_video(frames, video_path, fps=video_fps)
         print(f"Video saved to {video_path}")
 
-        # Extract the last frame from the video
-        last_frame = frames[-1]
+        # last_frame = frames[-1]
 
-        # Save the last frame as an image
-        last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
-        last_frame.resize((1024, 1024)).save(last_frame_path)
+        # last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
+        # last_frame.resize((1024, 1024)).save(last_frame_path)
 
-        print(f"Resized last frame saved as an image at {last_frame_path}")
+        # print(f"Resized last frame saved as an image at {last_frame_path}")
 
         gc.collect()
         torch.cuda.empty_cache()
 
-        # Update the pipeline to use XL model for image-to-image
-        # Resize the last frame to 1024x1024 for image-to-image processing
-
-        # Generate the next image using the resized frame and prompt
         if idx < len(prompts) - 1:
             current_image = textandimage_pipeline(
                 prompt,
-                image=last_frame.resize((1024, 1024)),
+                # image=last_frame.resize((1024, 1024)),
                 strength=0.8,
-                guidance_scale=10.5
+                guidance_scale=9.5
             ).images[0]
 
             new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")

@@ -14,6 +14,8 @@ import re
 import uuid
 import datetime
 import tqdm
+import traceback
+
 
 
 
@@ -325,7 +327,7 @@ def zoom_in_effect(clip, zoom_ratio=0.04, target_duration=None):
 
     return clip.fl(effect)
 
-def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effect):
+def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effect, font_size=45, width=500):
     """
     Creates a typewriter effect for the given text.
     - If the text contains one word, it animates each letter.
@@ -335,19 +337,19 @@ def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effe
     change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
 
     # Determine if the text is a single word or multiple words
-    size=(1000, 500)
+    size=(width, 550)
     # Use findObjects to locate each letter or word
     text_clip = TextClip(
         text,
-        fontsize=30,
+        fontsize=font_size,
         stroke_color=stroke_color,
-        stroke_width=10,
+        stroke_width=2,
         color=text_color,
         font="Trueno_bold",
         method="caption",
-        kerning=2,
-        size=size  # Adjusted size for better visibility
-    )
+        kerning=-2,
+        size=size
+        )
         # If it's a single word, animate each letter
     objects = findObjects(text_clip, preview=False)
 
@@ -370,6 +372,27 @@ def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effe
     composite = CompositeVideoClip(clips, size=size).set_position(("center", "center"))
     # composite.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
     return composite
+
+def clip_text(text, text_color, stroke_color, duration_clip, font_size=45, width=500):
+    change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
+
+    # Determine if the text is a single word or multiple words
+    size=(width, 550)
+    # Use findObjects to locate each letter or word
+    text_clip = TextClip(
+        text,
+        fontsize=font_size,
+        stroke_color=stroke_color,
+        stroke_width=3,
+        color=text_color,
+        font="Trueno_bold",
+        method="caption",
+        kerning=-1,
+        size=size
+        ).set_position(("center", "center")).set_duration(duration_clip)
+    
+    #text_clip.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
+    return text_clip
 
 def parse_srt_file(srt_input):
     """
@@ -428,10 +451,10 @@ def parse_srt_file(srt_input):
     else:
         raise ValueError("Invalid SRT input. Must be a file path or a JSON array of objects.")
 
-def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length=57, short_duration=60, timing_multiplier=1):
+def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length=57, timing_multiplier=1, font_size=45, width=500, target_text_duration=1):
     """
     Create text clips from timestamps with special effects.
-    Ensure each clip has a minimum duration of 0.2 seconds by combining words if necessary.
+    Ensure each clip has a minimum duration of target_text_duration seconds by combining words if necessary.
     """
     # Parse the SRT input (either file or JSON)
     word_timestamps = parse_srt_file(srt_input)
@@ -439,7 +462,6 @@ def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length
         return None
 
     text_clips = []
-    text_clips_short = []
     i = 0
     total_words = len(word_timestamps)
     pbar = tqdm.tqdm(total=total_words)
@@ -450,8 +472,8 @@ def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length
         word_start_time = start_time
         combined_duration = 0.0
 
-        # Collect words until the combined duration is at least 0.12 seconds
-        while (i < total_words and combined_duration < 0.12) or (i < total_words and word_timestamps[i]["text"].startswith("-")):
+        # Collect words until the combined duration is at least target_text_duration long
+        while (i < total_words and combined_duration < target_text_duration) or (i < total_words and word_timestamps[i]["text"].startswith("-")) or (i < total_words and word_timestamps[i]['duration'] * timing_multiplier > target_text_duration and len(text_fragment) == 0):
             word_info = word_timestamps[i]
             word = word_info['text']
 
@@ -468,6 +490,9 @@ def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length
             i += 1
             pbar.update(1)
 
+            if word.strip().endswith(".") or (combined_duration >= target_text_duration // 2 and word.strip().endswith(",")):
+                break
+
         # Combine the collected words into a single string
         combined_text = ' '.join(text_fragment)
 
@@ -479,22 +504,23 @@ def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length
         change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
         if i == total_words - 1:
             combined_duration = combined_duration + max(0, audio_end - (word_start_time + combined_duration))
-            text_clip = clip_typewriter(combined_text, text_color, stroke_color, combined_duration, combined_duration / 2.5)
+            # text_clip = clip_typewriter(combined_text, text_color, stroke_color, combined_duration, combined_duration / 3, font_size=font_size, width=width)
+            text_clip = clip_text(combined_text, text_color, stroke_color, combined_duration, font_size=font_size, width=width)
         else:
-            text_clip = clip_typewriter(combined_text, text_color, stroke_color, combined_duration, combined_duration / 2.5)
+            text_clip = clip_text(combined_text, text_color, stroke_color, combined_duration, font_size=font_size, width=width)
 
         # Apply text clip settings
         text_clip = text_clip.set_start(word_start_time)
         text_clip = text_clip.set_position(('center', 'center'))
         text_clip = text_clip.set_duration(combined_duration)
-        if text_clip.start + text_clip.duration < short_duration:
-            text_clips_short.append(text_clip)
+        # if text_clip.start + text_clip.duration < short_duration:
+        #     text_clips_short.append(text_clip)
 
         text_clips.append(text_clip)
         if text_clip.start + text_clip.duration > max_length:
             return text_clips
 
-    return text_clips, text_clips_short
+    return text_clips
 
 def get_audio_duration(audio_file):
     if audio_file == None:
@@ -602,25 +628,36 @@ def compile_and_resize_videos(total_duration, target_folder="data/temp", aspect_
 
     video_files.sort(key=extract_number)
 
-    # Calculate the duration each clip should have
-    segment_duration = total_duration / len(video_files)
+    # Calculate duration for the remaining clips after adjusting the first one
+    remaining_duration = total_duration
     compiled_clips = []
 
-    for video_file in video_files:
+    for i, video_file in enumerate(video_files):
         try:
             video_clip = VideoFileClip(video_file)
             video_clip = video_clip.resize(height=resolution[1])
             (w, h) = video_clip.size
 
+            # Ensure aspect ratio is correct by cropping if necessary
             if h != resolution[1] or w / h != aspect_ratio[0] / aspect_ratio[1]:
                 new_width = (resolution[1] * aspect_ratio[0]) / aspect_ratio[1]
                 video_clip = video_clip.crop(
                     x_center=w / 2, y_center=h / 2, width=new_width, height=resolution[1]
                 )
 
-            video_clip = video_clip.fx(vfx.speedx, video_clip.duration / segment_duration)
-            compiled_clips.append(video_clip.set_duration(segment_duration))
-    
+            if i == 0:
+                # Play the first video twice as fast
+                video_clip = video_clip.fx(vfx.speedx, factor=2)
+                first_video_duration = video_clip.duration
+                compiled_clips.append(video_clip.set_duration(first_video_duration))
+                # Subtract the first video's adjusted duration from the remaining duration
+                remaining_duration -= first_video_duration
+            else:
+                # Adjust the remaining videos to match the remaining duration
+                segment_duration = remaining_duration / (len(video_files) - len(compiled_clips))
+                video_clip = video_clip.fx(vfx.speedx, video_clip.duration / segment_duration)
+                compiled_clips.append(video_clip.set_duration(round(segment_duration, 1)))
+
         except Exception as e:
             logging.error(f"Error processing video '{video_file}': {e}")
 
@@ -629,7 +666,6 @@ def compile_and_resize_videos(total_duration, target_folder="data/temp", aspect_
         return None
     logging.info(f"Compiled clips from: {target_folder}")
     return compiled_clips
-
 
 def combine_audio_and_video(
     full_audio_path, video_clips_path, full_timings, full_text, output_path, output_video="full_video.mp4",
@@ -642,7 +678,7 @@ def combine_audio_and_video(
 
         # Load audio clips and set up final audio
         combined_audio = AudioFileClip(full_audio_path)
-        ding_audio = AudioFileClip("data/sound_effects/ding.mp3").volumex(0.8)
+        ding_audio = AudioFileClip("data/sound_effects/ding.mp3").volumex(0.6).set_duration(1.5)
         background_audio = AudioFileClip("data/sound_effects/background_audio.mp3").volumex(0.2)
         total_duration = combined_audio.duration
 
@@ -653,47 +689,62 @@ def combine_audio_and_video(
         final_audio = concatenate_audioclips([ding_audio, background_audio_looped])
         final_audio = CompositeAudioClip([combined_audio, final_audio])
 
-        # Compile and resize video clips to match full resolution
+        total_duration = round(final_audio.duration, 2)
+        short_duration = min(total_duration, 60)
+
         full_clips = compile_and_resize_videos(total_duration, video_clips_path, (16, 9), resolution)
+        # short_clips = compile_and_resize_videos(short_duration, video_clips_path, (9, 16), resolution)
+
 
         if not full_clips:
             return False
 
-        # Combine video clips and audio
         full_video = concatenate_videoclips(full_clips).set_duration(total_duration)
-        # Resize the combined video with audio
-        resized_full_video = full_video.resize(newsize=resolution)
-        resized_full_video = resized_full_video.set_audio(final_audio)
-        # Get random colors for text
-        text_color, stroke_color = get_random_color_combination()
+
+
+        # text_color, stroke_color = get_random_color_combination()
+        text_color = "White"
+        stroke_color = "Purple"
         logging.info("Creating text clips")
 
-        # Create text clips for the full video duration
-        full_text_clips, short_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, short_duration=60)
+        full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=35, width=1000, target_text_duration=1.8)
+        short_text_clips = create_text_clips(srt_input=full_timings, audio_end=short_duration, text_color=text_color, stroke_color=stroke_color, max_length=short_duration, font_size=40, target_text_duration=1.2)
+       
+        logging.info("Text clips completed")
 
-        # Add text overlays to the resized full video
-        full_text_overlay = CompositeVideoClip(full_text_clips).set_position(("center", "center"))
-        
-        full_composite = CompositeVideoClip([resized_full_video, full_text_overlay], use_bgclip=True)
-        full_composite.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
+        full_text_overlay = CompositeVideoClip(full_text_clips).set_position(("center", "bottom"))        
+        full_composite = CompositeVideoClip([full_video, full_text_overlay], use_bgclip=True).set_duration(total_duration)
+        full_composite = full_composite.set_audio(final_audio)
+        full_composite.write_videofile(output_video, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', threads=24, remove_temp=True)
         logging.info(f"Full video saved at {output_video}")
 
-        # Create the short version maintaining a 9:16 vertical aspect ratio
-        short_aspect_ratio = (resolution[1], round(resolution[1] / 9 * 16))
-        short_video_resized = resized_full_video.subclip(0, 60).resize(newsize=short_aspect_ratio)
+        video_resolution = (1024, 1024)  
+        target_aspect_ratio = (9, 16) 
 
-        # Create text clips for the short video
+        target_height = video_resolution[1]
+        target_width = round(target_height * target_aspect_ratio[0] / target_aspect_ratio[1])
+
+        # Load the video and create a subclip
+        short_video = full_video.subclip(0, short_duration).resize(video_resolution)
+
+        # Calculate the crop boundaries (crop equally from left and right)
+        x_center = video_resolution[0] // 2
+        x1 = x_center - target_width // 2
+        x2 = x_center + target_width // 2
+
+        # Crop the video to the target width
+        cropped_video = short_video.crop(x1=x1, x2=x2, y1=0, y2=target_height)
+
         short_text_overlay = CompositeVideoClip(short_text_clips).set_position(("center", "center"))
-
-        # Add text overlays to the short video
-        short_composite = CompositeVideoClip([short_video_resized, short_text_overlay], use_bgclip=True)
-        short_composite.write_videofile(output_video_short, codec="libx264", audio_codec="aac", fps=18)
+        short_composite = CompositeVideoClip([cropped_video, short_text_overlay], use_bgclip=True)
+        short_composite = short_composite.set_audio(final_audio).subclip(0, short_duration)
+        short_composite.write_videofile(output_video_short, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True, threads = 24)
         logging.info(f"Short video saved at {output_video_short}")
 
         return True
 
     except Exception as e:
-        logging.error(f"Error combining audio and video: {e}")
+        logging.error(f"Error combining audio and video: {traceback.format_exc()}")
         return False
 
     
