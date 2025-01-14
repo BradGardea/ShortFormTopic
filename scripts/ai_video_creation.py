@@ -263,10 +263,10 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         generator = torch.manual_seed(3259255)  
         frames = video_pipeline(
             resized_image,
-            decode_chunk_size=6,
+            decode_chunk_size=4,
             generator=generator,
-            motion_bucket_id=240,
-            noise_aug_strength=0.2,
+            motion_bucket_id=200,
+            noise_aug_strength=0.1,
             num_frames=num_frames,
         ).frames[0]
 
@@ -297,9 +297,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
             print(f"Resized new frame saved as an image at {new_seed_path}")
 
-
-
-    print("Process completed!")
+        print("Process completed!")
 
 
     print("All parts processed successfully.")

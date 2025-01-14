@@ -383,7 +383,7 @@ def clip_text(text, text_color, stroke_color, duration_clip, font_size=45, width
         text,
         fontsize=font_size,
         stroke_color=stroke_color,
-        stroke_width=3,
+        stroke_width=2,
         color=text_color,
         font="Trueno_bold",
         method="caption",
@@ -690,7 +690,7 @@ def combine_audio_and_video(
         final_audio = CompositeAudioClip([combined_audio, final_audio])
 
         total_duration = round(final_audio.duration, 2)
-        short_duration = min(total_duration, 60)
+        short_duration = min(total_duration, 59)
 
         full_clips = compile_and_resize_videos(total_duration, video_clips_path, (16, 9), resolution)
         # short_clips = compile_and_resize_videos(short_duration, video_clips_path, (9, 16), resolution)
@@ -707,7 +707,7 @@ def combine_audio_and_video(
         stroke_color = "Purple"
         logging.info("Creating text clips")
 
-        full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=35, width=1000, target_text_duration=1.8)
+        full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=27, width=1000, target_text_duration=1.8)
         short_text_clips = create_text_clips(srt_input=full_timings, audio_end=short_duration, text_color=text_color, stroke_color=stroke_color, max_length=short_duration, font_size=40, target_text_duration=1.2)
        
         logging.info("Text clips completed")
