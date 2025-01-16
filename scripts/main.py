@@ -534,6 +534,8 @@ def main(title = None, content = None):
                 if full != None:
                     # Create a combined video for the post
                     if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
+                        with open(f'out/{gen_id}/data.json', 'w') as f:
+                            json.dump(obj, f)
                         logging.info(f"Succesffuly generated post: {obj['title']}")
                 else:
                     logging.error(

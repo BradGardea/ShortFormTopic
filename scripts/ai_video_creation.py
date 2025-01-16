@@ -254,7 +254,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
     # Load the I2VGenXLPipeline for image-to-video
     video_pipeline = CogVideoXImageToVideoPipeline.from_pretrained(
-    "THUDM/CogVideoX-5b-I2V",
+    "THUDM/CogVideoX-2b-I2V",
     torch_dtype=torch.bfloat16
     ).to("cuda:1")
 
