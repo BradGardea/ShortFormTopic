@@ -772,5 +772,7 @@ def create_combined_video_for_post(post, full, output_folder="out/", video_clips
         full_text = full[2],
         output_path=output_video_path,
     ) == None:
-        logging.error(f"Could not create video for post: {post['title']}")
+        logging.error(f"Could not create video for post: {post['title']}")       
         return None
+    else:
+        return True
