@@ -116,6 +116,8 @@ themes = [
 ]
 
 topics = [
+  "Adultery",
+  "Conflict",
   "Relationships",
   "Family",
   "Friendship",
@@ -168,7 +170,37 @@ topics = [
   "Life Choices"
 ]
 
-
+semantics = [
+    "Triste",
+    "Controversial",
+    "Dreamy",
+    "Exciting",
+    "Riveting",
+    "Touching",
+    "Inspirational",
+    "Mysterious",
+    "Heartwarming",
+    "Thrilling",
+    "Melancholic",
+    "Humorous",
+    "Dramatic",
+    "Chilling",
+    "Romantic",
+    "Hopeful",
+    "Poignant",
+    "Suspenseful",
+    "Whimsical",
+    "Dark",
+    "Empowering",
+    "Adventurous",
+    "Bittersweet",
+    "Epic",
+    "Philosophical",
+    "Haunting",
+    "Euphoric",
+    "Nostalgic",
+    "Gripping",
+]
 
 
 # Configure logging
@@ -250,9 +282,13 @@ def write_json_to_folder(json_object, folder_path, filename):
     logging.info(f"JSON file saved to: {file_path}")
     return file_path
 
-def get_story(mode, novel, topic, theme):
+def get_story(mode):
 
     use_novel = random.choice((True, False))
+    novel = random.choice(novels)
+    theme = random.choice(themes)
+    topic = random.choice(topics)
+    semantic = random.choice(semantics)
     #region llama
     if modes[mode] == "AITA":
         posts = get_random_stories_from_csv()
@@ -281,160 +317,61 @@ def get_story(mode, novel, topic, theme):
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme, based on the story of {novel}.
                     
-                    The story must be controversial and captivating with a VERY interesting title and first line.
+                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line to captiavte the reader, use vulgar language and expressions. Ensure the material does not violate any laws.
                     """
                 else:
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme.
 
-                    The story must be controversial and captivating with a VERY interesting title and first line.
+                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line, use vulgar language and expressions. Ensure the material does not violate any laws.
                     """
 
-                story = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+                obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
                 #print(f"Story response: {story}")
 
-                if story == "":
+                if obj == "":
                     logging.error("Unable to generate story")
                     return -1
 
-
-                formatting_system_context = """You are now a expert filmographer and understander who must provide perfect summaries and extract the actual story while being able to make detailed descriptions of a story in JSON."""
-
-                formatting_prompt = """
-
-                Here is the story you created:
-                %s
-
-                Create a JSON object with the following:
-
-                "title": the title of the story you created with a very captivating hook (if it is AITA or WIBTA type of story then use that as the title),
-                "body": the body of the story you created
-                "hastags": a seires of single word strings to use to make it captivating i.e entertaining, satifying etc.
-                "description": a description of the story
-
-                Here is an example of how it should be formatted.
-
-                {
-                "title": "AITA for Calling My Friend Out in Public?",
-                "body": "During a group dinner, my friend made a joke at my expense. Feeling hurt, I snapped back in front of everyone. Now, the vibe is awkward, and I’m wondering if I overreacted. (story continues)",
-                "hashtags": ["friendship", "awkward", "honesty", "relationships"],
-                "description": "A short story about the delicate balance of honesty and tact in friendships.",
-                }
-                """ % story
-
-                formatted = chat_response(model_name, formatting_system_context, formatting_prompt, temperature=0.2, mode="formatted")
-                #print(f"Formatted response: {formatted}")
-                obj = json.loads(formatted)
             except Exception as e:
                 logging.error(f"An error occurred during llm generation: {e}")
                 return -1
     elif modes[mode] == "AMA":
         try:
             story_system_context = f"""       
-            As a character from {novel} you are capable of answering any question about {topic}
+            You are now an expert about the novel {novel}, you are capable of answering any question about {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses.
             """
             
             story_prompt = f"""
-            In the voice of the character from the novel you are from, answer a question about the topic of which you are an expert in that is very interesting.
+            In the voice of the character from the novel you are from, create and answer a question about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions. Ensure the material does not violate any laws.
             """
 
-            story = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+            obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
             #print(f"Story response: {story}")
 
-            if story == "":
+            if obj == "":
                 logging.error("Unable to generate story")
                 return -1
-
-
-            formatting_system_context = """You are now a expert filmographer and understander who must provide perfect summaries and extract the actual answer and question while being able to make detailed descriptions of answered questions in JSON."""
-
-            formatting_prompt = """
-
-            Here is the answer to a question you created:
-            %s
-
-            Create a JSON object with the following:
-
-            "title": The question that you were answering (make it captivating by adding something shocking about the question to the title),
-            "body": the answer you created
-            "hastags": a seires of single word strings to use to make it captivating i.e entertaining, satifying etc.
-            "description": a description of the question and answer
-            
-            Here is an example of how it should be formatted:
-
-            {
-            "title": "How Did You Catch Your First White Whale, Captain?",
-            "body": "Ah, the first one—it’s a tale etched into my very soul. We spotted the beast at dawn, its alabaster hide gleaming under the breaking sun. My crew and I, mere men against a leviathan, rowed out in silence. Harpoon in hand, I struck true, but the whale dragged us miles before we wore it down. Blood mingled with the sea, and I knew then that I was forever bound to the hunt. (story continues)",
-            "hashtags": ["whaling", "adventure", "ocean", "18thCentury", "drama"],
-            "description": "The gripping tale of a captain recalling his first encounter with a white whale, a story of determination, courage, and obsession on the high seas.",
-            }
-
-            """ % story
-
-            formatted = chat_response(model_name, formatting_system_context, formatting_prompt, temperature=0.2, mode="formatted")
-            #print(f"Formatted response: {formatted}")
-            obj = json.loads(formatted)
         except Exception as e:
             logging.error(f"An error occurred during llm generation: {e}")
             return -1
     elif modes[mode] == "SS":
         try:
             story_system_context = f"""       
-            As a character from {novel}, you are capable of answering any question about {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses.
+            You are now an expert about the novel {novel}, you can make any story on the topic of: {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses.
             """
 
             story_prompt = f"""
-            In the voice of a character from {novel}, craft a short story that weaves together elements of {theme} while addressing an intriguing question about {topic}. The story should be concise yet captivating, offering a glimpse into the character's world and their perspective.
+            In the voice of a character from {novel}, craft a short story that weaves together elements of {theme} while following {topic}. The story should be somewhat lengthy, captivating and should be written to be {semantic} with a VERY intriguing and contentious, the first line should act as a hook for the reader, offering a glimpse into the character's world and their perspective. Use vulgar language and expressions. Ensure the material does not violate any laws.
             """
 
-            story = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+            obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
             #print(f"Story response: {story}")
 
-            if story == "":
+            if obj == "":
                 logging.error("Unable to generate story")
                 return -1
-
-            formatting_system_context = """You are now an expert filmographer and storyteller who must provide perfect summaries, extract the actual answer and question, and create detailed descriptions of short stories in JSON format."""
-
-            formatting_prompt = """
-
-            Here is the short story you created:
-            %s
-
-            Create a JSON object with the following:
-
-            "title": The title of the short story you created (make it captivating as if it belongs to a novel, not a question),
-            "body": The short story you created,
-            "hastags": A series of single-word strings to make it engaging (e.g., exciting, mysterious, adventurous, etc.),
-            "description": A brief description of the story, including its central theme and mood,
-            "prompt": An object that will contain instructions to a text-to-video model that describes what is going on in the story. Ensure that characters and environments are described thoroughly, with details about their appearance, age, hair, eyes, clothes, surroundings, atmosphere, etc.
-                Generate objects for the "color", "style", and an array of text for "parts" (each part should be roughly 1/24 of the total story). 
-            If no story was generated, add a key "error" and set it to true.
-
-            Here is an example of how it should be formatted, ensure that the color, style and sscenes are MUCH MUCH MUCH more descriptive:
-
-            # {
-            # "title": "The Hunt Beneath Crimson Waves",
-            # "body": "The dawn broke with a somber light, casting its weak rays over the tumultuous sea. Captain Rourke stood at the prow, his piercing gaze fixed on the horizon. The white whale breached the waves, its alabaster body glistening, a fleeting specter of myth. The chase was on, harpoons soaring through the salty air, cries of men mingling with the ocean's roar. Hours later, as the creature's strength waned, Rourke stood triumphant, though the weight of the kill bore heavy on his soul.",
-            # "hashtags": ["adventure", "whaling", "maritime", "18thCentury", "drama"],
-            # "description": "An evocative tale of Captain Rourke's relentless pursuit of a legendary white whale, capturing the struggle between man and nature, triumph, and guilt.",
-            # "prompt": {
-            #     "color": "A palette dominated by deep, inky ocean blues that convey the vastness and mystery of the sea, juxtaposed with stark, almost blinding whites to capture the ethereal presence of the whale and the misty horizon. Flashes of vibrant crimson punctuate the scenes, symbolizing danger, life, and the visceral reality of the hunt. The colors shift subtly with the changing light of day, from muted grays of morning mist to the fiery oranges and purples of dusk, evoking a sense of time and the relentless passage of the hunt.",
-            #     "style": "Cinematic and profoundly dramatic, with compositions inspired by the chiaroscuro contrasts of classic maritime paintings. The interplay of light and shadow is used to emphasize the enormity of the whale and the fragility of the human figures against the vast expanse of the sea. Every frame is imbued with a painterly quality, where rich textures and meticulous details bring the maritime world to life. The storytelling is heightened by sweeping, dynamic camera movements, evoking the grandeur of epic films, while intimate close-ups capture the raw emotion and resolve etched into the faces of the crew.",
-            #     "parts": {
-            #         "part1": "The scene begins with Captain Rourke, a seasoned mariner whose weathered face tells tales of countless storms and battles, standing on the deck of the *Resolute*. The ship creaks and groans against the rolling waves of a vast and gray ocean, shrouded in an almost otherworldly mist. The crew, clad in worn oilskins, moves with practiced efficiency, though a nervous tension lingers in the air. The distant cry of a gull echoes, barely audible over the rhythmic crash of the sea. Rourke’s steely gaze cuts through the fog as he grips the railing, his knuckles white, scanning for a shadow in the depths.",
-            #         "part2": "Without warning, the white whale breaches the surface in a breathtaking explosion of water and power. Its massive, ghostly form is both awe-inspiring and terrifying, glistening in the muted sunlight. The crew freezes momentarily, caught between fear and wonder, before scrambling into small rowboats. Oars splash as they push away from the ship, their movements frantic but coordinated. The tension thickens, the sound of their ragged breaths and creaking oarlocks punctuated by the whale’s deep, resonant exhale. Rourke’s voice cuts through the chaos, calm yet commanding, urging the men forward. His eyes are locked on the creature, a symbol of both destiny and obsession.",
-            #         "part3": "The harpoons are hurled with precision honed by years of practice, their steel tips gleaming as they arc through the air. One strikes true, embedding deep into the whale’s thick hide. A haunting, guttural bellow reverberates across the water as the creature thrashes in agony, its powerful tail churning the ocean into a frothy tempest. One of the rowboats is caught in the maelstrom, its occupants thrown into disarray. Rourke, his voice unwavering, shouts commands to the remaining boats, coordinating their assault with the precision of a battlefield general. The whale’s movements become erratic, its immense strength both a weapon and a testament to its will to survive.",
-            #         "part4": "Hours pass as the chase drags on, the relentless pursuit pushing the crew to their physical and mental limits. The once-calm sea grows restless, its surface dark and foreboding under a sky streaked with ominous clouds. The crew’s weariness is evident in their slumped shoulders and labored movements, yet they press on, driven by the unyielding determination of their captain. Rourke remains a pillar of focus and resolve, his weathered hands steady on the tiller as he calculates every move. The whale, though formidable, shows signs of fatigue, its breaches less forceful, its movements slower. The clash between man and nature becomes a testament to endurance and sheer will.",
-            #         "part5": "As dusk approaches, the whale surfaces for what seems to be the final time. Its once-majestic form is now battered and bloodied, the sea around it tinged crimson. The crew works silently, their faces a mixture of awe, sorrow, and grim determination. The harpoons are retrieved, the lines tightened, and the final blows are delivered with a reverence that belies the violence of the act. The ocean, a silent witness, reflects the deep hues of the setting sun, casting an almost ethereal glow over the somber scene. The men, though victorious, are subdued, their triumph tempered by the weight of their actions.",
-            #         "part6": "The story concludes with Captain Rourke standing alone on the deck of the *Resolute*, the day's events etched deeply into his weary expression. The ship drifts in the twilight, its sails catching the last whispers of the dying breeze. Rourke’s gaze is fixed on the horizon, where the sea and sky meet in a fleeting embrace of gold and violet. The shadow of the hunt lingers around him, a reminder of the cost of obsession and the fragile line between victory and loss. The crew below decks celebrates quietly, their voices muted, as Rourke reflects on the profound and enduring bond between man and the untamed forces of nature."
-            #     }
-            # }
-            """ % story
-
-            formatted = chat_response(model_name, formatting_system_context, formatting_prompt, temperature=0.2, mode="formatted")
-            #print(f"Formatted response: {formatted}")
-            obj = json.loads(formatted)
+            
         except Exception as e:
             logging.error(f"An error occurred during llm generation: {e}")
             return -1
@@ -443,13 +380,18 @@ def get_story(mode, novel, topic, theme):
     formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
 
     formatting_prompt = """
-    With the following JSON object you created: %s
-
+    With the following story you created: %s
+    
     Ensure that the value for the key "body" reads like a novel/short story.
-    Ensure that the value of the key "color" and "style" in the object with key "prompt" are painfully descriptive.
-    """ % json.dumps(obj)
 
-    formatted = chat_response(model_name, formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
+    Ensure the story does not violate any laws. If it does, set "error" to true.
+    """ % obj
+
+    formatted = chat_response("llama:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
+
+    obj = json.loads(formatted)
+    if obj.get("error", False) == True:
+        return -1
 
     formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
 
@@ -457,12 +399,12 @@ def get_story(mode, novel, topic, theme):
     With the following JSON object you created which represents a story: %s
     
     Modify it so that:
-
-    "body" is a much more detailed and includes twists and and turn, it should not be short, make the story quite long. Also, it should be written from a characters perspective so you can use "I", "Me" etc.
-    
+    "title" is the title of the story, it can also be question (if the story is an AITA story or an AMA story)    
     "seed" must be a small sized prompt that will be used to generate an image that will represent the art style and appearance of the characters in the story. 
     each of the parts must be a small sized prompt that explains very simply what is going on in the scene in a still frame, it should include characters (only decsription of them) and an environment.
     There are 24 parts in total so each of these images must illustrate 1/24 of the story.
+    "style" is the art style to use
+    "color" is the color pallate of the story
 
     THIS IS AN EXAMPLE of a prompt for seed:
     seed: "Astronaut in a red suit riding a horse, exaggerated expressions, pale colors, detailed, realistic 8k.
@@ -475,10 +417,10 @@ def get_story(mode, novel, topic, theme):
     "part2": "Astronaut with a blue visor exploring an underwater city, bioluminescent lights, futuristic",
     "part3": "Astronaut with a blue visor on a futuristic desert planet, surreal colors, artistic",
 
-    Notice how every time, the chracter's appearance is fully described.
+    Notice how every time, the chracter's appearance is fully described and the character is not referenced by their name, only their appearance each time.
 
     Follow the provided schema for JSON
-    """ % json.dumps(obj)
+    """ % formatted
 
     formatted = generate_response("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted", seed=True)
     obj = json.loads(formatted)
@@ -505,13 +447,10 @@ def main(title = None, content = None):
 
         try:    
             mode = random.choice(list(modes.keys()))
-            novel = random.choice(novels)
-            theme = random.choice(themes)
-            topic = random.choice(topics)
 
             logging.info(f"Generating {modes[mode]} post")
 
-            obj = get_story(mode, novel, topic, theme)
+            obj = get_story(mode)
             if isinstance(obj, int) and obj < 0:
                 continue
 
@@ -534,9 +473,12 @@ def main(title = None, content = None):
                 if full != None:
                     # Create a combined video for the post
                     if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
+                        with open(f"out/{gen_id}/story.json", 'w') as f:
+                            json.dump(obj, f)
+                            print("Added object to out dir")
                         with open(f'out/{gen_id}/data.json', 'w') as f:
                             json.dump(obj, f)
-                        logging.info(f"Succesffuly generated post: {obj['title']}")
+                        logging.info(f"Succesffuly generated post: {obj['title']}")   
                 else:
                     logging.error(
                         f"Failed to generate TTS for post: {obj['title']}")
@@ -546,24 +488,27 @@ def main(title = None, content = None):
         except Exception as e:
             print(f"An error occurred: {e}")
 
+def create_custom(gen_id):
+    path = os.path.join("data", "out", gen_id) 
+    videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+    sorted_videos = sorted(videos, key=lambda x: int(x.split("_")[1].split(".")[0]))
+    # for video in sorted_videos:
+    #     interpolate_ai_video(os.path.join(path, video))
+    with open(f"data/stories/{gen_id}.json") as f:
+        obj = json.load(f)
+        # full = generate_tts_for_post(obj, tts_folder_name=gen_id)
+        full = (f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full.mp3", f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full_transcription.srt", "")
+        if full != None:
+            # Create a combined video for the post
+            if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
+                logging.info(f"Succesffuly generated post: {obj['title']}")
+        else:
+            logging.error(
+                f"Failed to generate TTS for post: {obj['title']}")
 
 if __name__ == "__main__":
 
     main()
-    # gen_id = "a0cd0b11-3e8e-4439-8959-bee8698fa727"
-    # path = os.path.join("data", "out", gen_id) 
-    # videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
-    # sorted_videos = sorted(videos, key=lambda x: int(x.split("_")[1].split(".")[0]))
-    # for video in sorted_videos:
-    #     interpolate_ai_video(os.path.join(path, video))
-    # with open(f"data/stories/{gen_id}.json") as f:
-    #     obj = json.load(f)
-    #     full = generate_tts_for_post(obj, tts_folder_name=gen_id)
-    #     #full = (r"D:\Brad\Projects\ShortFormSucker\data\TTS\17d2854d-59bf-444a-a23a-15e762a6d3bd\full.mp3", r"D:\Brad\Projects\ShortFormSucker\data\TTS\17d2854d-59bf-444a-a23a-15e762a6d3bd\full_transcription.srt", "")
-    #     if full != None:
-    #         # Create a combined video for the post
-    #         if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
-    #             logging.info(f"Succesffuly generated post: {obj['title']}")
-    #     else:
-    #         logging.error(
-    #             f"Failed to generate TTS for post: {obj['title']}")
+    # gen_id = "88309a9c-7bc1-4822-9713-0c5d6e50163e"
+    # create_custom(gen_id)
+

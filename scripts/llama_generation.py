@@ -79,9 +79,10 @@ def chat_response(model, system_context, prompt, temperature=0.2, mode="story"):
                         "body": {"type": "string"},
                         "hashtags": {"type": "array", "items": {"type": "string"}},
                         "description": {"type": "string"},
-                        "prompt": {"type": "object", "properties": PARTS_SCHEMA['properties'], "required": PARTS_SCHEMA['required']}
+                        "prompt": {"type": "object", "properties": PARTS_SCHEMA['properties'], "required": PARTS_SCHEMA['required']},
+                        "error" : {"type" : "boolean"}
                     },
-                    "required": ["title", "body", "hashtags", "description", "prompt"]
+                    "required": ["title", "body", "hashtags", "description", "prompt", "error"]
                 },
                 "stream": False,
             }
