@@ -704,7 +704,7 @@ def combine_audio_and_video(
 
         # text_color, stroke_color = get_random_color_combination()
         text_color = "White"
-        stroke_color = "Purple"
+        stroke_color = "Blue"
         logging.info("Creating text clips")
 
         full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=27, width=1000, target_text_duration=1.8)
