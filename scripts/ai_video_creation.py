@@ -241,13 +241,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         print("Using provided seed image...")
         seed_image = Image.open(seed_image_path)
 
-    # Load the video diffusion pipeline
-    video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
-        "stabilityai/stable-video-diffusion-img2vid",
-        torch_dtype=torch.float16,
-        variant="fp16",
-        token=""
-    ).to("cuda:1")
+
     # video_pipeline.enable_model_cpu_offload()
     # video_pipeline.unet.enable_forward_chunking()
 
@@ -255,17 +249,27 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
     for idx, prompt in enumerate(prompts):
         print(f"Processing stage {idx + 1}/{len(prompts)} with prompt: {prompt}")
 
+        del textandimage_pipeline
+
         gc.collect()
         torch.cuda.empty_cache()
 
         resized_image = current_image.resize((1024, 576))
+
+        video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
+            "stabilityai/stable-video-diffusion-img2vid-xt",
+            torch_dtype=torch.float16,
+            variant="fp16",
+            token="",
+            device_map="balanced"
+        )
 
         generator = torch.manual_seed(3259255)  
         frames = video_pipeline(
             resized_image,
             decode_chunk_size=4,
             generator=generator,
-            motion_bucket_id=240,
+            motion_bucket_id=120,
             noise_aug_strength=0.2,
             num_frames=num_frames,
         ).frames[0]
@@ -277,7 +281,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         last_frame = frames[-1]
 
         last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
-        last_frame.resize((1024, 1024)).save(last_frame_path)
+        last_frame.save(last_frame_path)
 
         print(f"Resized last frame saved as an image at {last_frame_path}")
 
@@ -285,6 +289,20 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         torch.cuda.empty_cache()
 
         if idx < len(prompts) - 1:
+
+            del video_pipeline
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
+                "stabilityai/stable-diffusion-xl-base-1.0",
+                torch_dtype=torch.float16,
+                variant="fp16",
+                use_safetensors=True,
+                token=""
+            ).to("cuda:0")
+                
             current_image = textandimage_pipeline(
                 prompt,
                 # image=last_frame.resize((1024, 1024)),
@@ -297,11 +315,47 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
             print(f"Resized new frame saved as an image at {new_seed_path}")
 
-
-
-    print("Process completed!")
-
-
     print("All parts processed successfully.")
     return 0
 
+
+def main():
+    import os
+    import torch
+    from PIL import Image
+
+    # Define a sample story_obj with prompts for testing
+    story_obj = {
+        "prompt": {
+            "seed": "Astronaut standing on Mars, sunset, detailed, cinematic",
+            "parts": {
+                "part1": "Astronaut walking in a futuristic city",
+                "part2": "Astronaut discovering an ancient temple in the jungle",
+                "part3": "Astronaut flying through a nebula in space",
+            }
+        }
+    }
+
+    # Unique process ID for the test
+    process_id = "test_run_001"
+
+    # seed_image_path = r"data/out/test_run_001\seed.png" 
+    seed_image_path = None
+
+
+
+    # Call the function to generate the video
+    print("Starting AI video generation test...")
+    result = generate_ai_video_stable_diffusion(
+        story_obj=story_obj,
+        process_id=process_id,
+        seed_image_path=seed_image_path,
+    )
+
+    if result == 0:
+        print("Test completed successfully. Check the output folder for generated videos.")
+    else:
+        print("Test failed with an error.")
+
+if __name__ == "__main__":
+    main()

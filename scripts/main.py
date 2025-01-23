@@ -415,6 +415,9 @@ def get_story(mode):
     
     llama_body = obj.get("body", "")
 
+    if len(llama_body) < 200:
+        return -1
+
     formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
 
     formatting_prompt = """
@@ -442,14 +445,14 @@ def get_story(mode):
     "part3": "Astronaut with a blue visor on a futuristic desert planet, surreal colors, artistic",
 
     For each part, there is no context of the characters and their descriptions in the previous part. Each "scene" must fully describe the appearance of all individuals in the scene and the environment.
-    Do not use character names, when referencing a character, you MUST use their full description every time. 
+    Do not use character names, when referencing a character, you MUST only use their full description every time.
     Follow the provided schema for JSON
     """ % formatted
 
-    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted", seed=True)
+    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.35, mode="formatted", seed=True)
     obj = json.loads(formatted)
     if llama_body.strip() != "":
-        obj["body"] = llama_body
+        obj["body"] = llama_body 
     return obj
     #endregion
 
