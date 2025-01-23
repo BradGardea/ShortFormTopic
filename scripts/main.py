@@ -31,7 +31,7 @@ modes = {
     2: "SS", # short story
 }
 
-model_name = "llama3.1:8b"
+model_name = "gurubot/llama3-guru-uncensored:latest"
 
 novels = [
   "Pride and Prejudice",
@@ -317,13 +317,21 @@ def get_story(mode):
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme, based on the story of {novel}.
                     
-                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line to captiavte the reader, use vulgar language and expressions. Ensure the material does not violate any laws.
+                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line to captiavte the reader, use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+                    
+                    Only respond with the AITA title and the story itself as 1 block of text.
+
+                    For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..."
                     """
                 else:
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme.
 
-                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line, use vulgar language and expressions. Ensure the material does not violate any laws.
+                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line, use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+                    
+                    Only respond with the AITA title and the story itself as 1 block of text.
+
+                    For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..."
                     """
 
                 obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -343,7 +351,11 @@ def get_story(mode):
             """
             
             story_prompt = f"""
-            In the voice of the character from the novel you are from, create and answer a question about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions. Ensure the material does not violate any laws.
+            In the voice of the character from the novel you are from, create and answer a question about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+            
+            Only respond with the question and the answer to the question as 1 continuous block of text.
+            
+            For example: "How did I catch the biggest fucking whale to ever be caught? What an astute question you dipshit etc..."
             """
 
             obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -362,7 +374,12 @@ def get_story(mode):
             """
 
             story_prompt = f"""
-            In the voice of a character from {novel}, craft a short story that weaves together elements of {theme} while following {topic}. The story should be somewhat lengthy, captivating and should be written to be {semantic} with a VERY intriguing and contentious, the first line should act as a hook for the reader, offering a glimpse into the character's world and their perspective. Use vulgar language and expressions. Ensure the material does not violate any laws.
+            In the voice of a character from {novel}, craft a short story that weaves together elements of {theme} while following {topic}. The story should be somewhat lengthy, captivating and should be written to be {semantic} with a VERY intriguing and contentious, the first line should act as a hook for the reader, offering a glimpse into the character's world and their perspective.
+            Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+            
+            Only respond with the title of the short story and its content as 1 continuous block of text.
+            
+            For example: "How I fucked up my life in one simple move. Here we are, I am a girl from the country etc...."
             """
 
             obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -377,21 +394,26 @@ def get_story(mode):
             return -1
 
 
-    formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
+    formatting_system_context = """You are now a world class writer who will do exactly as told."""
 
     formatting_prompt = """
     With the following story you created: %s
+    Ensure that the value for the key "title" is either the question/title the story has in its first line or a controversial and VERY captivating hook for the story/answer of a question.
     
-    Ensure that the value for the key "body" reads like a novel/short story.
+    Ensure that the value for the key "body" is the content from the story
 
     Ensure the story does not violate any laws. If it does, set "error" to true.
     """ % obj
 
-    formatted = chat_response("llama:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
+    formatted = chat_response("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
+
 
     obj = json.loads(formatted)
     if obj.get("error", False) == True:
+        logging.info("Ouput may have issues, rejecting.")
         return -1
+    
+    llama_body = obj.get("body", "")
 
     formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
 
@@ -403,8 +425,10 @@ def get_story(mode):
     "seed" must be a small sized prompt that will be used to generate an image that will represent the art style and appearance of the characters in the story. 
     each of the parts must be a small sized prompt that explains very simply what is going on in the scene in a still frame, it should include characters (only decsription of them) and an environment.
     There are 24 parts in total so each of these images must illustrate 1/24 of the story.
+    "body" should be the content from the story from the json object you created. Only set this value to the story itself.
     "style" is the art style to use
     "color" is the color pallate of the story
+    "description" should be a medium length description of the story. 
 
     THIS IS AN EXAMPLE of a prompt for seed:
     seed: "Astronaut in a red suit riding a horse, exaggerated expressions, pale colors, detailed, realistic 8k.
@@ -417,13 +441,15 @@ def get_story(mode):
     "part2": "Astronaut with a blue visor exploring an underwater city, bioluminescent lights, futuristic",
     "part3": "Astronaut with a blue visor on a futuristic desert planet, surreal colors, artistic",
 
-    Notice how every time, the chracter's appearance is fully described and the character is not referenced by their name, only their appearance each time.
-
+    For each part, there is no context of the characters and their descriptions in the previous part. Each "scene" must fully describe the appearance of all individuals in the scene and the environment.
+    Do not use character names, when referencing a character, you MUST use their full description every time. 
     Follow the provided schema for JSON
     """ % formatted
 
-    formatted = generate_response("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted", seed=True)
+    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted", seed=True)
     obj = json.loads(formatted)
+    if llama_body.strip() != "":
+        obj["body"] = llama_body
     return obj
     #endregion
 
@@ -476,8 +502,6 @@ def main(title = None, content = None):
                         with open(f"out/{gen_id}/story.json", 'w') as f:
                             json.dump(obj, f)
                             print("Added object to out dir")
-                        with open(f'out/{gen_id}/data.json', 'w') as f:
-                            json.dump(obj, f)
                         logging.info(f"Succesffuly generated post: {obj['title']}")   
                 else:
                     logging.error(
@@ -496,8 +520,8 @@ def create_custom(gen_id):
     #     interpolate_ai_video(os.path.join(path, video))
     with open(f"data/stories/{gen_id}.json") as f:
         obj = json.load(f)
-        # full = generate_tts_for_post(obj, tts_folder_name=gen_id)
-        full = (f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full.mp3", f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full_transcription.srt", "")
+        full = generate_tts_for_post(obj, tts_folder_name=gen_id)
+        #full = (f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full.mp3", f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full_transcription.srt", "")
         if full != None:
             # Create a combined video for the post
             if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
