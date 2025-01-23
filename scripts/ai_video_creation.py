@@ -20,13 +20,18 @@ from diffusers import (
     AutoPipelineForText2Image,
     AutoPipelineForImage2Image,
     I2VGenXLPipeline,
-    CogVideoXImageToVideoPipeline
+    CogVideoXImageToVideoPipeline,
+    AutoencoderKLCogVideoX, CogVideoXTransformer3DModel, CogVideoXPipeline
 )
 from diffusers.utils import load_image, export_to_video
 from PIL import Image
 import torch
 import os
 import gc
+
+from transformers import T5EncoderModel
+from torchao.quantization import quantize_, int8_weight_only, int8_dynamic_activation_int8_weight
+
 
 
 def execute_inference(input_video, output_video, multi=2):
@@ -252,10 +257,26 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         print("Using provided seed image...")
         seed_image = Image.open(seed_image_path)
 
+
+    quantization = int8_weight_only
+
+    text_encoder = T5EncoderModel.from_pretrained("THUDM/CogVideoX-5b", subfolder="text_encoder", torch_dtype=torch.bfloat16)
+    quantize_(text_encoder, quantization())
+
+    transformer = CogVideoXTransformer3DModel.from_pretrained("THUDM/CogVideoX-5b", subfolder="transformer", torch_dtype=torch.bfloat16)
+    quantize_(transformer, quantization())
+
+    vae = AutoencoderKLCogVideoX.from_pretrained("THUDM/CogVideoX-5b", subfolder="vae", torch_dtype=torch.bfloat16)
+    quantize_(vae, quantization())
+
     # Load the I2VGenXLPipeline for image-to-video
     video_pipeline = CogVideoXImageToVideoPipeline.from_pretrained(
-    "THUDM/CogVideoX-2b-I2V",
-    torch_dtype=torch.bfloat16
+    "THUDM/CogVideoX-5b",
+    torch_dtype=torch.bfloat16,
+    text_encoder=text_encoder,
+    transformer=transformer,
+    vae=vae,
+    token=""
     ).to("cuda:1")
 
     current_image = seed_image
@@ -274,6 +295,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
         # Generate video frames
         generator = torch.manual_seed(8888)
+        
         frames = video_pipeline(
         prompt=motion,
         image=resized_image,
@@ -281,7 +303,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         num_inference_steps=50,
         num_frames=49,
         guidance_scale=6,
-        generator=torch.Generator(device="cuda").manual_seed(42),
+        generator=generator,
     ).frames[0]
 
         video_path = os.path.join(output_folder, f"video_{idx + 1}.gif")
