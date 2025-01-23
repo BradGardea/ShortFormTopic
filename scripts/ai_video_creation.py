@@ -263,7 +263,7 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         generator = torch.manual_seed(3259255)  
         frames = video_pipeline(
             resized_image,
-            decode_chunk_size=6,
+            decode_chunk_size=4,
             generator=generator,
             motion_bucket_id=240,
             noise_aug_strength=0.2,
