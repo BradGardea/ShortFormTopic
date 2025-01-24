@@ -50,81 +50,83 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
             {"seed": "Astronaut on a futuristic desert planet, surreal colors, artistic, realistic, 8k", "motion": "Astronaut walking on a surreal desert with glowing sands and strange structures"}
         ]
 
-    seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + " very realistic 8k."
+    # seed_prompt = story_obj.get("prompt", {}).get("seed", "Astronaut riding a horse, pale colors, detailed, realistic 8k") + " very realistic 8k."
     
     os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
     output_folder = f"data/out/{process_id}"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # Load the initial pipeline for generating the seed image
-    # textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
-    #     "stabilityai/stable-diffusion-xl-base-1.0",
-    #     torch_dtype=torch.float16,
-    #     variant="fp16",
-    #     use_safetensors=True,
-    #     token=""
-    # ).to("cuda:0")
-    textandimage_pipeline = None
+    quantization = int8_weight_only
 
-    # Generate the initial seed image if not provided
-    if not seed_image_path:
-        print("Generating initial seed image from: ", seed_prompt)
-        seed_image = textandimage_pipeline(seed_prompt).images[0]
-        seed_image_path = os.path.join(output_folder, "seed.png")
-        seed_image.save(seed_image_path)
-        print("Saved to: ", seed_image_path)
-    else:
-        print("Using provided seed image...")
-        seed_image = Image.open(seed_image_path)
+    text_encoder = T5EncoderModel.from_pretrained("THUDM/CogVideoX-5B-I2V", subfolder="text_encoder",
+                                                torch_dtype=torch.bfloat16)
+    quantize_(text_encoder, quantization())
 
+    transformer = CogVideoXTransformer3DModel.from_pretrained("THUDM/CogVideoX-5B-I2V", subfolder="transformer",
+                                                            torch_dtype=torch.bfloat16)
+    quantize_(transformer, quantization())
 
-    # quantization = int8_weight_only
+    vae = AutoencoderKLCogVideoX.from_pretrained("THUDM/CogVideoX-5B-I2V", subfolder="vae", torch_dtype=torch.bfloat16)
+    quantize_(vae, quantization())
 
-    # text_encoder = T5EncoderModel.from_pretrained("THUDM/CogVideoX-5b", subfolder="text_encoder", torch_dtype=torch.bfloat16)
-    # quantize_(text_encoder, quantization())
-
-    # transformer = CogVideoXTransformer3DModel.from_pretrained("THUDM/CogVideoX-5b", subfolder="transformer", torch_dtype=torch.bfloat16)
-    # quantize_(transformer, quantization())
-
-    # vae = AutoencoderKLCogVideoX.from_pretrained("THUDM/CogVideoX-5b", subfolder="vae", torch_dtype=torch.bfloat16)
-    # quantize_(vae, quantization())
-
-    video_pipeline = CogVideoXPipeline.from_pretrained(
-    "THUDM/CogVideoX-5b",
+    video_pipeline = CogVideoXImageToVideoPipeline.from_pretrained(
+    "THUDM/CogVideoX-5b-I2V",
+    text_encoder=text_encoder,
+    transformer=transformer,
+    vae=vae,
     torch_dtype=torch.bfloat16,
-    # text_encoder=text_encoder,
-    # transformer=transformer,
-    # vae=vae,
-    device_map="balanced",
-    max_memory={0: "10GB", 1: "10GB"}
-    )
+    #device_map="balanced",
+    #max_memory={0: "10GB", 1: "10GB"}
+    ).to("cuda")
 
-    video_pipeline.vae.enable_slicing()
+    video_pipeline.enable_model_cpu_offload()
     video_pipeline.vae.enable_tiling()
+    video_pipeline.vae.enable_slicing()
 
-    current_image = seed_image
+    textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        torch_dtype=torch.float16,
+        variant="fp16",
+        use_safetensors=True,
+        token=""
+    ).to("cuda:0")
+
+    textandimage_pipeline = None
+    
     for idx, stage in enumerate(prompts):
         seed = stage["seed"]
         motion = stage["motion"]
 
         print(f"Processing stage {idx + 1}/{len(prompts)} with seed: {seed} and motion: {motion}")
 
+        # Generate the initial seed image if not provided
+        if not seed_image_path:
+            print("Generating initial seed image from: ", seed)
+            seed_image = textandimage_pipeline(seed).images[0]
+            seed_image_path = os.path.join(output_folder, "seed.png")
+            seed_image.save(seed_image_path)
+            print("Saved to: ", seed_image_path)
+        else:
+            print("Using provided seed image...")
+            seed_image = Image.open(seed_image_path)
+        current_image = seed_image
+        
+        del textandimage_pipeline
+
         gc.collect()
         torch.cuda.empty_cache()
 
-        # resized_image = current_image.resize((1024, 576))
+        resized_image = current_image.resize((1024, 576))
                 
         frames = video_pipeline(
         prompt=motion,
-        # image=resized_image,
-        width=720,
-        height=480,
+        image=resized_image,
         num_videos_per_prompt=1,
         num_inference_steps=50,
         num_frames=49,
         guidance_scale=6,
-        generator=torch.Generator().manual_seed(8888),
+        generator=torch.Generator(device="cuda").manual_seed(8888),
         ).frames[0]
 
         video_path = os.path.join(output_folder, f"video_{idx + 1}.mp4")
@@ -141,18 +143,18 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         gc.collect()
         torch.cuda.empty_cache()
 
-        if idx < len(prompts) - 1:
-            current_image = textandimage_pipeline(
-                seed,
-                # image=last_frame.resize((1024, 1024)),
-                strength=0.8,
-                guidance_scale=9.5
-            ).images[0]
+        # if idx < len(prompts) - 1:
+        #     current_image = textandimage_pipeline(
+        #         seed,
+        #         # image=last_frame.resize((1024, 1024)),
+        #         strength=0.8,
+        #         guidance_scale=9.5
+        #     ).images[0]
 
-            new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
-            current_image.resize((1024, 576)).save(new_seed_path)
+        #     new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
+        #     current_image.resize((1024, 576)).save(new_seed_path)
 
-            print(f"Resized new frame saved as an image at {new_seed_path}")
+            # print(f"Resized new frame saved as an image at {new_seed_path}")
 
     print("All parts processed successfully.")
     return 0
@@ -341,7 +343,6 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 
 story_obj = {
     "prompt": {
-        "seed": "A serene landscape of a futuristic city at sunrise",
         "parts": {
             "part1": {
                 "seed": "Futuristic city skyline with tall glass buildings, warm hues, detailed, realistic, 8k",
