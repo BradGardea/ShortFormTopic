@@ -154,11 +154,12 @@ def generate_response(model, system_context, prompt, temperature=0.2, mode="stor
                     "properties": {
                         "title": {"type": "string"},
                         "body": {"type": "string"},
+                        'voice': {'type': 'string'},
                         "hashtags": {"type": "array", "items": {"type": "string"}},
                         "description": {"type": "string"},
                         "prompt": prompt
                     },
-                    "required": ["title", "body", "hashtags", "description", "prompt"]
+                    "required": ["title", "body", "voice", "hashtags", "description", "prompt"]
                 },
                 "stream": False,
             }

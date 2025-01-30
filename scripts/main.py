@@ -144,7 +144,6 @@ topics = [
   "Fashion",
   "Shopping",
   "Housing",
-  "Renting",
   "Home Improvement",
   "Dating",
   "Marriage",
@@ -227,14 +226,22 @@ def generate_tts_for_post(post, tts_folder_name):
     """Generate TTS for the title and content of the post using Azure TTS."""
     title = post['title'] + ". "
     content = post['body'] + "."
+    voice = post["voice"].lower()
+    if voice.lower() not in "mf":
+        voice = "f"
 
     #DEBUG
     content = content
 
+    if voice == "f":
+        voice_name = "AvaMultilingual"
+    else:
+        voice_name = "Guy"
+
     try:
         target_text = title + content
         full_path, timings_full = get_tts(
-            target_text, f"data/TTS/{tts_folder_name}", "full")
+            target_text, f"data/TTS/{tts_folder_name}", "full", voice_name=voice_name)
 
         logging.info(f"TTS generation successful for post: {title}")
         return (full_path, timings_full, target_text)
@@ -317,21 +324,37 @@ def get_story(mode):
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme, based on the story of {novel}.
                     
-                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line to captiavte the reader, use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line to captiavte the reader, use vulgar language and expressions such as "fuck, shit, bitch etc." throughout the story for emphasis. Ensure the material does not violate any laws.
                     
-                    Only respond with the AITA title and the story itself as 1 block of text.
+                    Only respond with the AITA title and the story itself as 1 block of text. Your response should be at least 300 words.
 
-                    For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..."
+                    For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
+
+                    This story must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
+
+                    Use simple language in the voice of the character you are portraying.
+
+                    The title must be controversial and captivating.
+
+                    You should NOT be answering the AITA question, you are creating a situation for the reader to answer. Ensure a complete and relativley lengthy story is generated with no gaps.
                     """
                 else:
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme.
 
-                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line, use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+                    The story should be written to be {semantic} and captivating with a VERY interesting title and first line, use vulgar language and expressions such as "fuck, shit, bitch etc." throughout the story for emphasis. Ensure the material does not violate any laws.
                     
-                    Only respond with the AITA title and the story itself as 1 block of text.
+                    Only respond with the AITA title and the story itself as 1 block of text. Your response should be at least 300 words.
 
-                    For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..."
+                    For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
+
+                    This story must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
+
+                    Use simple language in the voice of the character you are portraying.
+
+                    The title must be controversial and captivating.
+
+                    You should NOT be answering the AITA question, you are creating a situation for the reader to answer. Ensure a complete and relativley lengthy story is generated with no gaps.
                     """
 
                 obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -347,15 +370,24 @@ def get_story(mode):
     elif modes[mode] == "AMA":
         try:
             story_system_context = f"""       
-            You are now an expert about the novel {novel}, you are capable of answering any question about {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses.
+            You are now an expert about the novel {novel}, you are capable of answering any question about {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses. You generate the most intruiging and meaningful questions and answers possible. You use explicit language throughout your story to shock readers.
             """
             
             story_prompt = f"""
             In the voice of the character from the novel you are from, create and answer a question about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
             
-            Only respond with the question and the answer to the question as 1 continuous block of text.
+            Make sure that the question and answer are morally ambiguous and leaves the readers SHOCKED. This needs to be captivating and make sense.
+            Use vulgar language and expressions such as "fuck, shit, bitch etc." are used throught the story for emphasis. Ensure the material does not violate any laws.
+
+            Only respond with the question and the answer to the question as 1 continuous block of text. The story should be at least 300 words.
             
-            For example: "How did I catch the biggest fucking whale to ever be caught? What an astute question you dipshit etc..."
+            For example: "How did I catch the biggest fucking whale to ever be caught? What an astute question you dipshit etc..." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
+
+            Your question and answer must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
+
+            Use simple language in the voice of the character you are portraying. Ensure a complete story is generated with no gaps.
+
+            The title and first line must be controversial and captivating and related to the answer. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
             """
 
             obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -370,16 +402,24 @@ def get_story(mode):
     elif modes[mode] == "SS":
         try:
             story_system_context = f"""       
-            You are now an expert about the novel {novel}, you can make any story on the topic of: {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses.
+            You are now an expert about the novel {novel}, you can make any story on the topic of: {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses. You use explicit language throughout your story to shock readers.
             """
 
             story_prompt = f"""
-            In the voice of a character from {novel}, craft a short story that weaves together elements of {theme} while following {topic}. The story should be somewhat lengthy, captivating and should be written to be {semantic} with a VERY intriguing and contentious, the first line should act as a hook for the reader, offering a glimpse into the character's world and their perspective.
-            Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+            In the voice of a character from {novel}, craft a medium to long length story that weaves together elements of {theme} while following {topic}. The story should be somewhat lengthy, captivating and should be written to be {semantic} with a VERY intriguing and contentious, the first line should act as a hook for the reader, offering a glimpse into the character's world and their perspective.
             
-            Only respond with the title of the short story and its content as 1 continuous block of text.
+            Make sure that the story has a riveting introduction with action that builds up as the story progresses. The story should either end on a cliff hanger or an unexpected twist. The story should make sense and have substance.
+            Use vulgar language and expressions such as "fuck, shit, bitch etc." are used throught the story for emphasis. Ensure the material does not violate any laws.
             
-            For example: "How I fucked up my life in one simple move. Here we are, I am a girl from the country etc...."
+            Only respond with the title of the story and its content as 1 continuous block of text. The story should be at least 300 words.
+            
+            For example: "How I fucked up my life in one simple move. Here we are, I am a girl from the country etc...." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
+
+            This story must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
+
+            Use simple language in the voice of the character you are portraying.
+
+            The title must be jaw dropping. Same with the first line, it must be controversial and captivating. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
             """
 
             obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -397,12 +437,16 @@ def get_story(mode):
     formatting_system_context = """You are now a world class writer who will do exactly as told."""
 
     formatting_prompt = """
-    With the following story you created: %s
-    Ensure that the value for the key "title" is either the question/title the story has in its first line or a controversial and VERY captivating hook for the story/answer of a question.
-    
-    Ensure that the value for the key "body" is the content from the story
+    %s
 
-    Ensure the story does not violate any laws. If it does, set "error" to true.
+    From the story above, extract the title and body.
+
+    Your response should only set the title and the ACTUAL STORY. Remove any content from the START of the body that clearly does not read as part of the story from a characters perspective.
+
+    Ensure the story does not violate any laws, or has topics that involve children, racism, sexism and murder. If it does, set "error" to true.
+    If the story does not make sense, or if there is no story, set "error" to true.
+
+    Do not worry about the rest of the values in the schema, ensure that the title and body are complete and make sense if no laws are violated by its content.
     """ % obj
 
     formatted = chat_response("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
@@ -412,16 +456,18 @@ def get_story(mode):
     if obj.get("error", False) == True:
         logging.info("Ouput may have issues, rejecting.")
         return -1
-    
+    llama_title = obj.get("title", "")
     llama_body = obj.get("body", "")
 
-    if len(llama_body) < 200:
+    if len(llama_body.strip()) < 600 or llama_title.strip() == "":
         return -1
+
+    llama_story = llama_title + "." + llama_body
 
     formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
 
     formatting_prompt = """
-    With the following JSON object you created which represents a story: %s
+    With the following story you created: %s
     
     Modify it so that:
     "title" is the title of the story, it can also be question (if the story is an AITA story or an AMA story)    
@@ -432,6 +478,8 @@ def get_story(mode):
     "style" is the art style to use
     "color" is the color pallate of the story
     "description" should be a medium length description of the story. 
+
+    "voice" should be "m" if the narrator should be a man, or "f" if it should be a woman.
 
     THIS IS AN EXAMPLE of a prompt for seed:
     seed: "Astronaut in a red suit riding a horse, exaggerated expressions, pale colors, detailed, realistic 8k.
@@ -444,12 +492,16 @@ def get_story(mode):
     "part2": "Astronaut with a blue visor exploring an underwater city, bioluminescent lights, futuristic",
     "part3": "Astronaut with a blue visor on a futuristic desert planet, surreal colors, artistic",
 
-    For each part, there is no context of the characters and their descriptions in the previous part. Each "scene" must fully describe the appearance of all individuals in the scene and the environment.
-    Do not use character names, when referencing a character, you MUST only use their full description every time.
-    Follow the provided schema for JSON
-    """ % formatted
+    For each part object, there is absolutely no CONTEXT of the characters and their descriptions in the previous part objects. Each "scene" must fully describe the appearance of all individuals in the scene and the environment.
+    If you reference characters in previous parts instead of providing a description each time, you will get a lashing.
 
-    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.35, mode="formatted", seed=True)
+    Do not use character names, when referencing a character, you MUST only use their full description every time.
+
+    Ensure the parts you generate are relevant to the story. DO not judt copy the example.
+    Follow the provided schema for JSON
+    """ % llama_story
+
+    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.44, mode="formatted", seed=True)
     obj = json.loads(formatted)
     if llama_body.strip() != "":
         obj["body"] = llama_body 
@@ -490,12 +542,12 @@ def main(title = None, content = None):
             write_json_to_folder(obj, "data/stories", gen_id + ".json")
 
             try:
-                if generate_ai_video_stable_diffusion(obj, gen_id) < 0:
-                    continue
-                path = os.path.join("data", "out", gen_id ) 
-                videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
-                for video in videos:
-                    interpolate_ai_video(os.path.join(path, video))
+                # if generate_ai_video_stable_diffusion(obj, gen_id) < 0:
+                #     continue
+                # path = os.path.join("data", "out", gen_id ) 
+                # videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+                # for video in videos:
+                #     interpolate_ai_video(os.path.join(path, video))
 
                 full = generate_tts_for_post(obj, tts_folder_name=gen_id)
 

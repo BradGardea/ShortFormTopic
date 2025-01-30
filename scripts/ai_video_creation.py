@@ -205,7 +205,7 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
     print("All parts processed successfully.")
     return 0
 
-def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, video_fps=2, num_frames=14):
+def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, images_only=False, video_fps=2, num_frames=14):
  
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
     prompts = [parts_obj.get(f"part{i}", "") + " very realistic." for i in range(1, len(parts_obj) + 1)]
@@ -230,11 +230,18 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         token=""
     ).to("cuda:0")
 
+    if images_only:
+        os.makedirs(os.path.join(output_folder, "seeds"), exist_ok=True)
+
     # Generate the initial seed image if not provided
     if not seed_image_path:
         print("Generating initial seed image from: ", seed_prompt)
         seed_image = textandimage_pipeline(seed_prompt).images[0]
-        seed_image_path = os.path.join(output_folder, "seed.png")
+        if images_only:
+            seed_image_path = os.path.join(output_folder, "seeds", "0.png")
+        else:
+            seed_image_path = os.path.join(output_folder, "seed.png")
+
         seed_image.save(seed_image_path)
         print("Saved to: ", seed_image_path)
     else:
@@ -255,45 +262,43 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         torch.cuda.empty_cache()
 
         resized_image = current_image.resize((1024, 576))
+        if not images_only:
+            video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
+                "stabilityai/stable-video-diffusion-img2vid-xt",
+                torch_dtype=torch.float16,
+                variant="fp16",
+                token="",
+                device_map="balanced"
+            )
 
-        video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
-            "stabilityai/stable-video-diffusion-img2vid-xt",
-            torch_dtype=torch.float16,
-            variant="fp16",
-            token="",
-            device_map="balanced"
-        )
+            generator = torch.manual_seed(3259255)  
+            frames = video_pipeline(
+                resized_image,
+                decode_chunk_size=4,
+                generator=generator,
+                motion_bucket_id=120,
+                noise_aug_strength=0.2,
+                num_frames=num_frames,
+            ).frames[0]
 
-        generator = torch.manual_seed(3259255)  
-        frames = video_pipeline(
-            resized_image,
-            decode_chunk_size=4,
-            generator=generator,
-            motion_bucket_id=120,
-            noise_aug_strength=0.2,
-            num_frames=num_frames,
-        ).frames[0]
+            video_path = os.path.join(output_folder, f"video_{idx + 1}.mp4")
+            export_to_video(frames, video_path, fps=video_fps)
+            print(f"Video saved to {video_path}")
 
-        video_path = os.path.join(output_folder, f"video_{idx + 1}.mp4")
-        export_to_video(frames, video_path, fps=video_fps)
-        print(f"Video saved to {video_path}")
+            last_frame = frames[-1]
 
-        last_frame = frames[-1]
+            last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
+            last_frame.save(last_frame_path)
 
-        last_frame_path = os.path.join(output_folder, f"frame_{idx + 1}.png")
-        last_frame.save(last_frame_path)
+            print(f"Resized last frame saved as an image at {last_frame_path}")
 
-        print(f"Resized last frame saved as an image at {last_frame_path}")
+            del video_pipeline
+
 
         gc.collect()
         torch.cuda.empty_cache()
 
         if idx < len(prompts) - 1:
-
-            del video_pipeline
-
-            gc.collect()
-            torch.cuda.empty_cache()
 
             textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
                 "stabilityai/stable-diffusion-xl-base-1.0",
@@ -309,9 +314,13 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
                 strength=0.8,
                 guidance_scale=9.5
             ).images[0]
+            if images_only:
+                new_seed_path = os.path.join(output_folder, "seeds", f"{idx + 1}.png")
+                current_image.resize((1024, 1024)).save(new_seed_path)
 
-            new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
-            current_image.resize((1024, 576)).save(new_seed_path)
+            else:
+                new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
+                current_image.resize((1024, 576)).save(new_seed_path)
 
             print(f"Resized new frame saved as an image at {new_seed_path}")
 
@@ -350,6 +359,7 @@ def main():
         story_obj=story_obj,
         process_id=process_id,
         seed_image_path=seed_image_path,
+        images_only=True
     )
 
     if result == 0:

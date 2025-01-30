@@ -56,10 +56,13 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
 
     # Generate SSML with speech rate customization
     ssml = f"""
-    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+    <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' 
+        xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'>
         <voice name='{voice_name}'>
             <mstts:express-as style='{style}' styledegree='{degree}'>
-                {text}
+                <prosody rate="1.1">
+                    {text}
+                </prosody>
             </mstts:express-as>
         </voice>
     </speak>
@@ -70,7 +73,9 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
     srt_path = os.path.join(output_dir, f"{output_name}_transcription.srt")
 
     # Perform the text-to-speech synthesis using SSML
-    speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
+    #speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
+    speech_synthesis_result = speech_synthesizer.speak_ssml_async(ssml).get()
+
 
     # Check if synthesis was successful
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
