@@ -155,7 +155,10 @@ dmypy.json
 cython_debug/
 
 out/
-data/
+data/out
+data/sound_effects
+data/stories
+data/TTS
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
