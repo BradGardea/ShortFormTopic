@@ -15,10 +15,12 @@ import uuid
 import datetime
 import tqdm
 import traceback
+from moviepy.video.fx.resize import resize
 
 
 
 
+FPS = 90
 
 #region old
 
@@ -251,41 +253,43 @@ def get_random_color_combination():
     ]
     return random.choice(color_combinations)
 
-def zoom_out_effect(clip, zoom_max_ratio=0.2, zoom_out_factor=0.04):
+def zoom_out_effect(clip, zoom_ratio=0.04, target_duration=None):
+    """
+    Apply a zoom-out effect to a clip over a specified target duration.
+    The clip will start at a zoomed-in size and return to normal.
+    """
+    if target_duration is None:
+        target_duration = clip.duration  # Default to full clip duration if not specified
+
     def effect(get_frame, t):
+        # Reverse the zoom factor calculation
+        zoom_factor = max(1 - (t / target_duration), 0)  # Clamps to [0, 1] range
+        current_zoom_ratio = zoom_ratio * zoom_factor
+
         img = Image.fromarray(get_frame(t))
         base_size = img.size
- 
-        # Reverse the zoom effect by starting zoomed in and zooming out
-        scale_factor = zoom_max_ratio - (zoom_out_factor * t)
-        scale_factor = max(scale_factor, 0)  # Ensure scale factor doesn't go negative
- 
+
+        # Calculate the new size based on the current zoom ratio
         new_size = [
-            math.ceil(base_size[0] * (1 + scale_factor)),
-            math.ceil(base_size[1] * (1 + scale_factor))
+            math.ceil(img.size[0] * (1 + current_zoom_ratio)),
+            math.ceil(img.size[1] * (1 + current_zoom_ratio))
         ]
- 
-        # The new dimensions must be even.
-        new_size[0] = new_size[0] - (new_size[0] % 2)
-        new_size[1] = new_size[1] - (new_size[1] % 2)
- 
+
+        # Ensure even dimensions
+        new_size[0] = new_size[0] + (new_size[0] % 2)
+        new_size[1] = new_size[1] + (new_size[1] % 2)
+
+        # Resize and crop
         img = img.resize(new_size, Image.LANCZOS)
- 
         x = math.ceil((new_size[0] - base_size[0]) / 2)
         y = math.ceil((new_size[1] - base_size[1]) / 2)
- 
-        img = img.crop([
-            x, y, new_size[0] - x, new_size[1] - y
-        ])
- 
-        # Resize back to base size
-        img = img.resize(base_size, Image.LANCZOS)
- 
+        img = img.crop([x, y, new_size[0] - x, new_size[1] - y]).resize(base_size, Image.LANCZOS)
+
         result = np.array(img)
         img.close()
- 
+
         return result
- 
+
     return clip.fl(effect)
 
 def zoom_in_effect(clip, zoom_ratio=0.04, target_duration=None):
@@ -327,6 +331,43 @@ def zoom_in_effect(clip, zoom_ratio=0.04, target_duration=None):
 
     return clip.fl(effect)
 
+def move_effect(clip, direction, move_ratio=0.1, target_duration=None):
+    """
+    Apply a movement effect to a clip while zooming in slightly to prevent black bars.
+    """
+    if target_duration is None:
+        target_duration = clip.duration
+
+    def effect(get_frame, t):
+        img = Image.fromarray(get_frame(t))
+        base_size = img.size
+        move_factor = min(t / target_duration, 1)  # Normalize time factor
+        offset_x, offset_y = 0, 0
+
+        # Compute movement offsets
+        if direction == "move_left":
+            offset_x = -int(base_size[0] * move_ratio * move_factor)
+        elif direction == "move_right":
+            offset_x = int(base_size[0] * move_ratio * move_factor)
+        elif direction == "move_up":
+            offset_y = -int(base_size[1] * move_ratio * move_factor)
+        elif direction == "move_down":
+            offset_y = int(base_size[1] * move_ratio * move_factor)
+
+        # Zoom into the image to compensate for movement
+        zoom_factor = 1 + 2 * move_ratio
+        new_size = (int(base_size[0] * zoom_factor), int(base_size[1] * zoom_factor))
+        img = img.resize(new_size, Image.LANCZOS)
+        
+        # Crop the zoomed-in image to maintain original dimensions
+        crop_x = (new_size[0] - base_size[0]) // 2
+        crop_y = (new_size[1] - base_size[1]) // 2
+        img = img.crop((crop_x + offset_x, crop_y + offset_y, crop_x + base_size[0] + offset_x, crop_y + base_size[1] + offset_y))
+        
+        return np.array(img)
+
+    return clip.fl(effect)
+
 def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effect, font_size=45, width=500):
     """
     Creates a typewriter effect for the given text.
@@ -347,7 +388,7 @@ def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effe
         color=text_color,
         font="Trueno_bold",
         method="caption",
-        kerning=-2,
+        kerning=2,
         size=size
         )
         # If it's a single word, animate each letter
@@ -373,7 +414,26 @@ def clip_typewriter(text, text_color, stroke_color, duration_clip, duration_effe
     # composite.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
     return composite
 
+
+def smooth_resize(t, duration=0.2, min_scale=0.8, max_scale=1.1):
+    """
+    Smoothly interpolates scale over time to create a 'jumping' effect.
+    
+    :param t: Current time in seconds
+    :param duration: Duration of the jump effect
+    :param min_scale: Minimum scale factor (smaller size)
+    :param max_scale: Maximum scale factor (larger size)
+    :return: Scale factor for resizing
+    """
+    if t < duration:
+        val = min_scale + (max_scale - min_scale) * (np.sin((t / duration) * np.pi))
+        return val
+    return 1  # Normal size after animation
+
+
+
 def clip_text(text, text_color, stroke_color, duration_clip, font_size=45, width=500):
+
     change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
 
     # Determine if the text is a single word or multiple words
@@ -391,8 +451,17 @@ def clip_text(text, text_color, stroke_color, duration_clip, font_size=45, width
         size=size
         ).set_position(("center", "center")).set_duration(duration_clip)
     
-    #text_clip.write_videofile("out/typewriter.mp4", codec="libx264", audio_codec="aac", fps=18)
+    zoom_in_duration = 0.075
+    zoomed_in_clip = zoom_in_effect(text_clip, zoom_ratio=0.15, target_duration=zoom_in_duration)
+
+    # Apply zoom out for the remaining duration
+    zoom_out_duration = duration_clip - zoom_in_duration
+    zoomed_out_clip = zoom_out_effect(zoomed_in_clip, zoom_ratio=0.13, target_duration=zoom_in_duration * 3.5)
+
+    #zoomed_out_clip.write_videofile("out/jump.mp4", codec="libx264", audio_codec="aac", fps=18)
+
     return text_clip
+
 
 def parse_srt_file(srt_input):
     """
@@ -490,7 +559,7 @@ def create_text_clips(srt_input, audio_end, text_color, stroke_color, max_length
             i += 1
             pbar.update(1)
 
-            if word.strip().endswith(".") or (combined_duration >= target_text_duration // 2 and word.strip().endswith(",")):
+            if (combined_duration >= target_text_duration / 1.5 and word.strip().endswith((",", ".", "!", "?"))):
                 break
 
         # Combine the collected words into a single string
@@ -570,7 +639,7 @@ def add_overlay_video(base_video, overlay_video_path, start_time, output_video, 
     
     # Load the overlay video
     overlay_clip = VideoFileClip(overlay_video_path)
-    overlay_clip = overlay_clip.resize(height=800)
+    overlay_clip = overlay_clip.resize(width=2 * base_video.w // 3)
     
     # Adjust the start time of the overlay video
     overlay_clip = overlay_clip.set_start(start_time)
@@ -586,26 +655,51 @@ def add_overlay_video(base_video, overlay_video_path, start_time, output_video, 
         final_composite = final_composite.set_audio(final_audio)
     
     # Write the final video file
-    final_composite = final_composite.subclip(0, 59)
-    final_composite.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=18)
-    print(f"Final video saved at {output_video}")
+    final_composite.write_videofile(output_video, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True, fps=FPS, threads = 24)
+    logging.info(f"Final video saved at {output_video}")
 
 def create_silence(duration=3):
     return AudioClip(lambda t: 0, duration=duration, fps=44100)
 
 
-def compile_and_resize_videos(total_duration, target_folder="data/temp", aspect_ratio=(9, 16), resolution=(1024, 576)):
+def calculate_new_resolution(current_width, current_height, target_aspect_ratio):
     """
-    Compile and resize video clips to match the desired duration, splitting the total duration into equal parts.
+    Calculate the new resolution to fit a target aspect ratio while minimizing cropping.
 
     Args:
-        total_duration (float): Total duration of the final video in seconds.
-        target_folder (str): Folder containing video clips.
-        aspect_ratio (tuple): Aspect ratio for resizing (width, height).
-        resolution (tuple): Desired resolution for the final video (width, height).
+        current_width (int): Original video width.
+        current_height (int): Original video height.
+        target_aspect_ratio (tuple): Target aspect ratio as (width, height).
 
     Returns:
-        list: List of resized and duration-adjusted video clips.
+        tuple: (new_width, new_height)
+    """
+    target_ar = target_aspect_ratio[0] / target_aspect_ratio[1]
+    current_ar = current_width / current_height
+
+    if current_ar > target_ar:
+        # Original is wider → crop width
+        new_width = round(current_height * target_ar)
+        return new_width, current_height
+    else:
+        # Original is taller → crop height
+        new_height = round(current_width / target_ar)
+        return current_width, new_height
+
+def compile_and_resize_videos(total_duration, target_folder="data/temp", aspect_ratio=(9, 16)):
+    """
+    Compile and resize video clips or images into a final video with the specified duration.
+    
+    If images are found, they are converted to videos with random camera effects.
+    
+    Args:
+        total_duration (float): Total duration of the final video in seconds.
+        target_folder (str): Folder containing video clips or images.
+        aspect_ratio (tuple): Aspect ratio for resizing (width, height).
+        resolution (tuple): Desired resolution for the final video (width, height).
+    
+    Returns:
+        list: List of processed video clips.
     """
     if not os.path.exists(target_folder):
         logging.error(f"Folder '{target_folder}' does not exist.")
@@ -616,60 +710,128 @@ def compile_and_resize_videos(total_duration, target_folder="data/temp", aspect_
         for f in os.listdir(target_folder)
         if f.endswith((".mp4", ".mkv", ".mov"))
     ]
-
-    if not video_files:
-        logging.error("No valid video files found in the target folder.")
+    image_files = [
+        os.path.join(target_folder, f)
+        for f in os.listdir(target_folder)
+        if f.endswith((".jpg", ".jpeg", ".png"))
+    ]
+    
+    if not video_files and not image_files:
+        logging.error("No valid video or image files found in the target folder.")
         return None
-
-    # Sort video files by the first number in their name
+    
+    # Sort files by the first number in their name
     def extract_number(filename):
         match = re.search(r"(\d+)", os.path.basename(filename))
         return int(match.group(1)) if match else float("inf")
 
     video_files.sort(key=extract_number)
-
-    # Calculate duration for the remaining clips after adjusting the first one
-    remaining_duration = total_duration
+    image_files.sort(key=extract_number)
+    
     compiled_clips = []
+    remaining_duration = total_duration
+    total_media_count = len(video_files) + len(image_files)
 
-    for i, video_file in enumerate(video_files):
+    
+    for i, media_file in enumerate(video_files + image_files):
+        resolution = None
         try:
-            video_clip = VideoFileClip(video_file)
-            video_clip = video_clip.resize(height=resolution[1])
-            (w, h) = video_clip.size
+            if media_file in video_files:
+                clip = VideoFileClip(media_file)
+            else:
+                img = ImageClip(media_file)
+                resolution = img.size
+                del img
+                clip = create_image_video_clip(media_file, resolution, duration=total_duration/total_media_count)
 
-            # Ensure aspect ratio is correct by cropping if necessary
-            if h != resolution[1] or w / h != aspect_ratio[0] / aspect_ratio[1]:
-                new_width = (resolution[1] * aspect_ratio[0]) / aspect_ratio[1]
-                video_clip = video_clip.crop(
-                    x_center=w / 2, y_center=h / 2, width=new_width, height=resolution[1]
-                )
+            
+            # (w, h) = clip.size
+            
+            # if h != resolution[1] and w != resolution[0]:
+            #     clip = clip.resize(height=resolution[1])
 
+            #     new_width = round(resolution[1] * (aspect_ratio[0] / aspect_ratio[1]))
+
+            #     # Resize the width to match the correct aspect ratio
+            #     clip = clip.resize(width=new_width)  
+
+            #     # Ensure proper cropping in case there’s extra space
+            #     clip = clip.crop(x_center=new_width / 2, y_center=h / 2, width=new_width, height=resolution[1])
+
+            # clip.write_videofile(r"out/temp_video.mp4", codec='libx264')
+
+            
             if i == 0:
-                # Play the first video twice as fast
-                video_clip = video_clip.fx(vfx.speedx, factor=2)
-                first_video_duration = video_clip.duration
-                compiled_clips.append(video_clip.set_duration(first_video_duration))
-                # Subtract the first video's adjusted duration from the remaining duration
+                # clip = clip.fx(vfx.speedx, factor=2) $ change to speed up first clip
+                first_video_duration = clip.duration
+                compiled_clips.append(clip.set_duration(first_video_duration))
                 remaining_duration -= first_video_duration
             else:
-                # Adjust the remaining videos to match the remaining duration
-                segment_duration = remaining_duration / (len(video_files) - len(compiled_clips))
-                video_clip = video_clip.fx(vfx.speedx, video_clip.duration / segment_duration)
-                compiled_clips.append(video_clip.set_duration(round(segment_duration, 1)))
-
+                segment_duration = remaining_duration / (total_media_count - len(compiled_clips))
+                clip = clip.fx(vfx.speedx, clip.duration / segment_duration)
+                compiled_clips.append(clip.set_duration(round(segment_duration, 1)))
+                
         except Exception as e:
-            logging.error(f"Error processing video '{video_file}': {e}")
-
+            logging.error(f"Error processing file '{media_file}': {e}")
+    
     if len(compiled_clips) < 6:
-        logging.error("Not enough valid videos to compile the required duration.")
+        logging.error("Not enough valid media files to compile the required duration.")
         return None
+    
     logging.info(f"Compiled clips from: {target_folder}")
     return compiled_clips
 
+def create_image_video_clip(image_path, resolution, duration=5):
+    """
+    Create a video clip from an image with proper cropping and camera movement.
+    
+    Args:
+        image_path (str): Path to the image file.
+        resolution (tuple): Target resolution (width, height).
+        duration (int): Duration of the image clip in seconds.
+    
+    Returns:
+        ImageSequenceClip: Video clip with animation applied.
+    """
+    image_clip = ImageClip(image_path, duration=duration).set_fps(FPS)
+
+    # # Original image dimensions
+    # img_width, img_height = image_clip.size
+
+    # target_width, target_height = resolution  # e.g., (576, 1024) for vertical video
+
+
+    # image_clip = image_clip.fx(resize, newsize=(target_width, img_height))
+
+    # if img_width / img_height > target_width / target_height:
+    #     new_width = int((img_height / target_height) * target_width)
+    #     image_clip = image_clip.crop(
+    #         x_center=img_width // 2, width=new_width, height=img_height
+    #     )
+    # else:
+    #     image_clip = image_clip.resize(width=target_width, height=target_height)
+    #     image_clip = image_clip.crop(
+    #         y_center=img_height // 2, width=target_width, height=target_height
+    #     )
+
+
+    # Apply movement effects
+    effect = random.choice(["zoom_in", "zoom_out", "move_left", "move_right", "move_up", "move_down"])
+
+    zoom_ratio=0.4
+
+    movement_clip = None
+    if effect == "zoom_in":
+        movement_clip = zoom_in_effect(image_clip, zoom_ratio=zoom_ratio, target_duration=duration)
+    elif effect == "zoom_out":
+        movement_clip = zoom_out_effect(image_clip, zoom_ratio=zoom_ratio, target_duration=duration)
+    else:
+        movement_clip = move_effect(image_clip, effect, move_ratio=zoom_ratio/2, target_duration=duration)
+    return movement_clip
+
 def combine_audio_and_video(
-    full_audio_path, video_clips_path, full_timings, full_text, output_path, output_video="full_video.mp4",
-    output_video_short="short_video.mp4", resolution=(1024, 576)
+    full_audio_path, video_clips_path, images_path, full_timings, full_text, output_path, output_video="full_video.mp4",
+    output_video_short="short_video.mp4", resolution=(1820, 1024)
 ):
     try:
         # Define full and short video output paths
@@ -690,55 +852,77 @@ def combine_audio_and_video(
         final_audio = CompositeAudioClip([combined_audio, final_audio])
 
         total_duration = round(final_audio.duration, 2)
-        short_duration = min(total_duration, 59)
+        short_duration = min(total_duration, 60)
+        short_audio_duration = short_duration - 8
 
-        full_clips = compile_and_resize_videos(total_duration, video_clips_path, (16, 9), resolution)
-        # short_clips = compile_and_resize_videos(short_duration, video_clips_path, (9, 16), resolution)
+        if images_path != None and os.path.exists(images_path):
+            full_clips = compile_and_resize_videos(total_duration, images_path)
+            short_clips = compile_and_resize_videos(total_duration, images_path)
 
+        else:
+            full_clips = compile_and_resize_videos(total_duration, video_clips_path)
+            short_clips = compile_and_resize_videos(total_duration, video_clips_path)
 
-        if not full_clips:
-            return False
 
         full_video = concatenate_videoclips(full_clips).set_duration(total_duration)
+        short_video = concatenate_videoclips(short_clips).set_duration(short_duration)
+
+        target_aspect_ratio = (16, 9)
+
+        video_width, video_height = full_video.size  
+
+        target_height = video_height
+        target_width = round(target_height * target_aspect_ratio[0] / target_aspect_ratio[1])
+        target_width = max(target_width, video_width)
+
+        full_video = full_video.fx(resize, newsize=(target_width, video_height))
+        
+        target_aspect_ratio = (9, 16)
+
+        video_width, video_height = short_video.size  
+
+        target_height = video_height
+        target_width = round(target_height * target_aspect_ratio[0] / target_aspect_ratio[1])
+        target_width = min(target_width, video_width)
+        short_video = short_video.subclip(0, short_duration)
+
+        x_center = short_video.w // 2
+        x1 = max(0, x_center - target_width // 2)
+        x2 = min(video_width, x_center + target_width // 2)
+
+        
+        if target_width < video_width:
+            cropped_video = short_video.crop(x1=x1, x2=x2, y1=0, y2=target_height)
+        else:
+            cropped_video = short_video
+
+        short_audio = final_audio.subclip(0, short_audio_duration)
 
 
-        # text_color, stroke_color = get_random_color_combination()
         text_color = "White"
         stroke_color = "Blue"
         logging.info("Creating text clips")
 
-        full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=27, width=1000, target_text_duration=1.8)
-        short_text_clips = create_text_clips(srt_input=full_timings, audio_end=short_duration, text_color=text_color, stroke_color=stroke_color, max_length=short_duration, font_size=40, target_text_duration=1.2)
+        full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=45, width=1000, target_text_duration=1.5)
+        short_text_clips = create_text_clips(srt_input=full_timings, audio_end=short_audio_duration, text_color=text_color, stroke_color=stroke_color, max_length=short_audio_duration, font_size=35, target_text_duration=0.4)
        
         logging.info("Text clips completed")
+
 
         full_text_overlay = CompositeVideoClip(full_text_clips).set_position(("center", "bottom"))        
         full_composite = CompositeVideoClip([full_video, full_text_overlay], use_bgclip=True).set_duration(total_duration)
         full_composite = full_composite.set_audio(final_audio)
-        full_composite.write_videofile(output_video, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', threads=24, remove_temp=True)
+        full_composite.write_videofile(output_video, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', threads=24, fps=60, remove_temp=True)
         logging.info(f"Full video saved at {output_video}")
-
-        video_resolution = (1024, 1024)  
-        target_aspect_ratio = (9, 16) 
-
-        target_height = video_resolution[1]
-        target_width = round(target_height * target_aspect_ratio[0] / target_aspect_ratio[1])
-
-        # Load the video and create a subclip
-        short_video = full_video.subclip(0, short_duration).resize(video_resolution)
-
-        # Calculate the crop boundaries (crop equally from left and right)
-        x_center = video_resolution[0] // 2
-        x1 = x_center - target_width // 2
-        x2 = x_center + target_width // 2
-
-        # Crop the video to the target width
-        cropped_video = short_video.crop(x1=x1, x2=x2, y1=0, y2=target_height)
 
         short_text_overlay = CompositeVideoClip(short_text_clips).set_position(("center", "center"))
         short_composite = CompositeVideoClip([cropped_video, short_text_overlay], use_bgclip=True)
-        short_composite = short_composite.set_audio(final_audio).subclip(0, short_duration)
-        short_composite.write_videofile(output_video_short, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True, threads = 24)
+        short_composite = short_composite.subclip(0, short_duration)
+        short_composite = short_composite.set_audio(short_audio)
+
+        add_overlay_video(short_composite, r"data\like_part_2.mp4", short_audio.duration, output_video_short)
+
+        #short_composite.write_videofile(output_video_short, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True, fps=30, threads = 24)
         logging.info(f"Short video saved at {output_video_short}")
 
         return True
@@ -748,7 +932,7 @@ def combine_audio_and_video(
         return False
 
     
-def create_combined_video_for_post(post, full, output_folder="out/", video_clips_path="", gen_id=uuid.uuid4()):
+def create_combined_video_for_post(post, full, output_folder="out/", video_clips_path="", images_path=None, gen_id=uuid.uuid4()):
     """Create a combined video for the post using the video generator."""
     # total_audio_duration = get_audio_duration(full[0])
     # # Select random videos to match the duration of the combined audio
@@ -764,6 +948,7 @@ def create_combined_video_for_post(post, full, output_folder="out/", video_clips
         # content_audio_file=content_tts_audio_file,
         full_audio_path = full[0],
         video_clips_path=video_clips_path,
+        images_path=images_path,
         # title_timings=title[1],   # Word timings for title TTS
         # title_text=title[2],
         # content_timings=content[1], # Word timings for content TTS
@@ -771,8 +956,7 @@ def create_combined_video_for_post(post, full, output_folder="out/", video_clips
         full_timings = full[1],
         full_text = full[2],
         output_path=output_video_path,
-    ) == None:
-        logging.error(f"Could not create video for post: {post['title']}")       
-        return None
-    else:
+    ):
         return True
+    else:
+        logging.error(f"Could not create video for post: {post['title']}")       

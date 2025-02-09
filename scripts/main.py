@@ -18,7 +18,9 @@ import json
 from scripts.reddit import run_scrapers
 from scripts.azure_synth import get_tts
 from scripts.video_generator import create_combined_video_for_post
-from scripts.llama_generation import generate_response, chat_response
+from scripts.llama_generation import generate_response_llama
+# from scripts.llama_generation import generate_response, chat_response
+from scripts.gpt_generation import generate_response
 from scripts.ai_video_creation import generate_ai_video_stable_diffusion, interpolate_ai_video
 
 
@@ -31,7 +33,9 @@ modes = {
     2: "SS", # short story
 }
 
-model_name = "gurubot/llama3-guru-uncensored:latest"
+# model_name = "gurubot/llama3-guru-uncensored:latest"
+model_name = "gpt-4o-mini-2024-07-18"
+
 
 novels = [
   "Pride and Prejudice",
@@ -169,36 +173,45 @@ topics = [
   "Life Choices"
 ]
 
+# semantics = [
+#     "Triste",
+#     "Controversial",
+#     "Dreamy",
+#     "Exciting",
+#     "Riveting",
+#     "Touching",
+#     "Inspirational",
+#     "Mysterious",
+#     "Heartwarming",
+#     "Thrilling",
+#     "Melancholic",
+#     "Humorous",
+#     "Dramatic",
+#     "Chilling",
+#     "Romantic",
+#     "Hopeful",
+#     "Poignant",
+#     "Suspenseful",
+#     "Whimsical",
+#     "Dark",
+#     "Empowering",
+#     "Adventurous",
+#     "Bittersweet",
+#     "Epic",
+#     "Philosophical",
+#     "Haunting",
+#     "Euphoric",
+#     "Nostalgic",
+#     "Gripping",
+# ]
+
 semantics = [
-    "Triste",
     "Controversial",
-    "Dreamy",
-    "Exciting",
-    "Riveting",
-    "Touching",
-    "Inspirational",
-    "Mysterious",
-    "Heartwarming",
-    "Thrilling",
-    "Melancholic",
-    "Humorous",
-    "Dramatic",
-    "Chilling",
-    "Romantic",
-    "Hopeful",
-    "Poignant",
-    "Suspenseful",
-    "Whimsical",
-    "Dark",
-    "Empowering",
-    "Adventurous",
-    "Bittersweet",
-    "Epic",
-    "Philosophical",
-    "Haunting",
-    "Euphoric",
-    "Nostalgic",
     "Gripping",
+    "Romantic",
+    "Realistic",
+    "Humorous",
+    "Thrilling"
 ]
 
 
@@ -234,9 +247,9 @@ def generate_tts_for_post(post, tts_folder_name):
     content = content
 
     if voice == "f":
-        voice_name = "AvaMultilingual"
+        voice_name = random.choice(["AvaMultilingual", "CoraMultilingual", "Jane", "Aria"])
     else:
-        voice_name = "Guy"
+        voice_name = random.choice(["BrianMultilingual", "ChristopherMultilingual", "AndrewMultilingual", "Jason", "Christopher"])
 
     try:
         target_text = title + content
@@ -357,7 +370,7 @@ def get_story(mode):
                     You should NOT be answering the AITA question, you are creating a situation for the reader to answer. Ensure a complete and relativley lengthy story is generated with no gaps.
                     """
 
-                obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+                obj = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
                 #print(f"Story response: {story}")
 
                 if obj == "":
@@ -374,23 +387,26 @@ def get_story(mode):
             """
             
             story_prompt = f"""
-            In the voice of the character from the novel you are from, create and answer a question about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+            In the voice of the character from the novel you are from, create a controversial question that the character should be able to answer.
+            Answer this question question in a WILD way, but make sure it makes sense. Ensure that it is about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
             
+            An example on how this could look would be:
+
+            "People who have been cheated on, what happend?
+            Well, i didnt really wanna talk about this but it's something that has been wheighing on my mind..." THIS IS ONLY AN EXAMPLE 
+
+
             Make sure that the question and answer are morally ambiguous and leaves the readers SHOCKED. This needs to be captivating and make sense.
             Use vulgar language and expressions such as "fuck, shit, bitch etc." are used throught the story for emphasis. Ensure the material does not violate any laws.
 
-            Only respond with the question and the answer to the question as 1 continuous block of text. The story should be at least 300 words.
+            Only respond with the question and the answer to the question as 1 continuous block of text.
             
-            For example: "How did I catch the biggest fucking whale to ever be caught? What an astute question you dipshit etc..." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
-
-            Your question and answer must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
-
             Use simple language in the voice of the character you are portraying. Ensure a complete story is generated with no gaps.
 
             The title and first line must be controversial and captivating and related to the answer. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
             """
 
-            obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+            obj = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
             #print(f"Story response: {story}")
 
             if obj == "":
@@ -422,7 +438,7 @@ def get_story(mode):
             The title must be jaw dropping. Same with the first line, it must be controversial and captivating. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
             """
 
-            obj = chat_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
+            obj = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
             #print(f"Story response: {story}")
 
             if obj == "":
@@ -446,10 +462,10 @@ def get_story(mode):
     Ensure the story does not violate any laws, or has topics that involve children, racism, sexism and murder. If it does, set "error" to true.
     If the story does not make sense, or if there is no story, set "error" to true.
 
-    Do not worry about the rest of the values in the schema, ensure that the title and body are complete and make sense if no laws are violated by its content.
+    Only set the title and body.
     """ % obj
 
-    formatted = chat_response("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
+    formatted = generate_response_llama("llama3.1:8b", formatting_system_context, formatting_prompt, temperature=0.5, mode="formatted")
 
 
     obj = json.loads(formatted)
@@ -464,7 +480,7 @@ def get_story(mode):
 
     llama_story = llama_title + "." + llama_body
 
-    formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments in JSON foramt."""
+    formatting_system_context = """You are now a word class writer and artist who can provide excruciating details about stories, characters and environments. When providing descriptions for individual parts of the story you will fully decsribe each of the characters in every part."""
 
     formatting_prompt = """
     With the following story you created: %s
@@ -492,16 +508,15 @@ def get_story(mode):
     "part2": "Astronaut with a blue visor exploring an underwater city, bioluminescent lights, futuristic",
     "part3": "Astronaut with a blue visor on a futuristic desert planet, surreal colors, artistic",
 
-    For each part object, there is absolutely no CONTEXT of the characters and their descriptions in the previous part objects. Each "scene" must fully describe the appearance of all individuals in the scene and the environment.
-    If you reference characters in previous parts instead of providing a description each time, you will get a lashing.
+    Each part will be used in a text to image model. The model has no concept of memory so to keep the characters and environments consistent across the parts we must fully describe them each time. 
 
-    Do not use character names, when referencing a character, you MUST only use their full description every time.
+    If you reference characters in previous parts instead of providing a full description each time, you will get a lashing.
+    Do not use character names or pronouns, when referencing a character, you MUST ALWAYS fully describe the appearance each and every time.
 
-    Ensure the parts you generate are relevant to the story. DO not judt copy the example.
-    Follow the provided schema for JSON
+    Ensure the parts you generate are relevant to the story. DO not just copy the example.
     """ % llama_story
 
-    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.44, mode="formatted", seed=True)
+    formatted = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.44, mode="formatted")
     obj = json.loads(formatted)
     if llama_body.strip() != "":
         obj["body"] = llama_body 
@@ -542,18 +557,23 @@ def main(title = None, content = None):
             write_json_to_folder(obj, "data/stories", gen_id + ".json")
 
             try:
-                # if generate_ai_video_stable_diffusion(obj, gen_id) < 0:
-                #     continue
-                # path = os.path.join("data", "out", gen_id ) 
-                # videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
-                # for video in videos:
-                #     interpolate_ai_video(os.path.join(path, video))
+                images_only = True
+                if generate_ai_video_stable_diffusion(obj, gen_id, images_only=images_only) < 0:
+                    continue
+                if not images_only:
+                    path = os.path.join("data", "out", gen_id ) 
+                    videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+                    for video in videos:
+                        interpolate_ai_video(os.path.join(path, video))
 
                 full = generate_tts_for_post(obj, tts_folder_name=gen_id)
 
                 if full != None:
-                    # Create a combined video for the post
-                    if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
+                    if images_only:
+                        res = create_combined_video_for_post(obj, full, images_path=f"data/out/{gen_id}/seeds", gen_id=gen_id)
+                    else:
+                        res = create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id)
+                    if res != None:
                         with open(f"out/{gen_id}/story.json", 'w') as f:
                             json.dump(obj, f)
                             print("Added object to out dir")
@@ -568,18 +588,32 @@ def main(title = None, content = None):
             print(f"An error occurred: {e}")
 
 def create_custom(gen_id):
-    path = os.path.join("data", "out", gen_id) 
-    videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
-    sorted_videos = sorted(videos, key=lambda x: int(x.split("_")[1].split(".")[0]))
-    # for video in sorted_videos:
-    #     interpolate_ai_video(os.path.join(path, video))
+    # path = os.path.join("data", "out", gen_id) 
+    # videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+    # sorted_videos = sorted(videos, key=lambda x: int(x.split("_")[1].split(".")[0]))
+    # # for video in sorted_videos:
+    # #     interpolate_ai_video(os.path.join(path, video))
+
+    
+
     with open(f"data/stories/{gen_id}.json") as f:
         obj = json.load(f)
-        full = generate_tts_for_post(obj, tts_folder_name=gen_id)
-        #full = (f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full.mp3", f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full_transcription.srt", "")
+        #full = generate_tts_for_post(obj, tts_folder_name=gen_id)
+
+        # images_only = True
+        # if generate_ai_video_stable_diffusion(obj, gen_id, images_only=images_only) < 0:
+        #     return
+        
+        # if not images_only:
+        #     path = os.path.join("data", "out", gen_id ) 
+        #     videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+        #     for video in videos:
+        #         interpolate_ai_video(os.path.join(path, video))
+
+        full = (f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full.wav", f"D:\Brad\Projects\ShortFormSucker\data\TTS\{gen_id}\\full_transcription.srt", "")
         if full != None:
             # Create a combined video for the post
-            if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
+            if (create_combined_video_for_post(obj, full, images_path=f"data/out/{gen_id}/seeds", gen_id=gen_id) != None):
                 logging.info(f"Succesffuly generated post: {obj['title']}")
         else:
             logging.error(
@@ -588,6 +622,5 @@ def create_custom(gen_id):
 if __name__ == "__main__":
 
     main()
-    # gen_id = "88309a9c-7bc1-4822-9713-0c5d6e50163e"
-    # create_custom(gen_id)
+    #create_custom("088c47dc-5afc-4465-8ea4-61ae8b517cda")
 

@@ -28,7 +28,7 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
     )
 
     # Configure audio output to save to a file
-    audio_file_path = os.path.join(output_dir, output_name + ".mp3")
+    audio_file_path = os.path.join(output_dir, output_name + ".wav")
     audio_config = speechsdk.audio.AudioOutputConfig(filename=audio_file_path)
 
     # Initialize the speech synthesizer
@@ -60,7 +60,7 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
         xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'>
         <voice name='{voice_name}'>
             <mstts:express-as style='{style}' styledegree='{degree}'>
-                <prosody rate="1.1">
+                <prosody rate="1.15">
                     {text}
                 </prosody>
             </mstts:express-as>

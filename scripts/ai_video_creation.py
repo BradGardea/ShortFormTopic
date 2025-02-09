@@ -208,7 +208,7 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, images_only=False, video_fps=2, num_frames=14):
  
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
-    prompts = [parts_obj.get(f"part{i}", "") + " very realistic." for i in range(1, len(parts_obj) + 1)]
+    prompts = [parts_obj.get(f"part{i}", "") + "detailed, very realistic 8k." for i in range(1, len(parts_obj) + 1)]
     if prompts[0].strip() == "":    
         prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
         "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
@@ -223,12 +223,12 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
     # Load the initial pipeline for generating the seed image
     textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0",
+        r"C:\Users\brad\.cache\huggingface\hub\models--stabilityai--stable-diffusion-xl-base-1.0\snapshots\462165984030d82259a11f4367a4eed129e94a7b",
         torch_dtype=torch.float16,
         variant="fp16",
         use_safetensors=True,
-        token=""
-    ).to("cuda:0")
+        device_map = 'balanced'
+    )
 
     if images_only:
         os.makedirs(os.path.join(output_folder, "seeds"), exist_ok=True)
@@ -249,20 +249,22 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         seed_image = Image.open(seed_image_path)
 
 
-    # video_pipeline.enable_model_cpu_offload()
-    # video_pipeline.unet.enable_forward_chunking()
-
     current_image = seed_image
     for idx, prompt in enumerate(prompts):
-        print(f"Processing stage {idx + 1}/{len(prompts)} with prompt: {prompt}")
-
-        del textandimage_pipeline
-
+    
         gc.collect()
         torch.cuda.empty_cache()
 
+        print(f"Processing stage {idx + 1}/{len(prompts)} with prompt: {prompt}")
+
         resized_image = current_image.resize((1024, 576))
         if not images_only:
+
+            del textandimage_pipeline
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
             video_pipeline = StableVideoDiffusionPipeline.from_pretrained(
                 "stabilityai/stable-video-diffusion-img2vid-xt",
                 torch_dtype=torch.float16,
@@ -294,33 +296,30 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
 
             del video_pipeline
 
+            gc.collect()
+            torch.cuda.empty_cache()
 
-        gc.collect()
-        torch.cuda.empty_cache()
-
-        if idx < len(prompts) - 1:
-
+        if not images_only:
             textandimage_pipeline = AutoPipelineForText2Image.from_pretrained(
                 "stabilityai/stable-diffusion-xl-base-1.0",
                 torch_dtype=torch.float16,
                 variant="fp16",
                 use_safetensors=True,
                 token=""
-            ).to("cuda:0")
-                
-            current_image = textandimage_pipeline(
-                prompt,
-                # image=last_frame.resize((1024, 1024)),
-                strength=0.8,
-                guidance_scale=9.5
-            ).images[0]
-            if images_only:
-                new_seed_path = os.path.join(output_folder, "seeds", f"{idx + 1}.png")
-                current_image.resize((1024, 1024)).save(new_seed_path)
-
-            else:
-                new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
-                current_image.resize((1024, 576)).save(new_seed_path)
+            ).to("cuda:0") 
+            
+        current_image = textandimage_pipeline(
+            prompt,
+            # image=last_frame.resize((1024, 1024)),
+            strength=0.8,
+            guidance_scale=9.5
+        ).images[0]
+        if images_only:
+            new_seed_path = os.path.join(output_folder, "seeds", f"{idx + 1}.png")
+            current_image.resize((1024, 1024)).save(new_seed_path)
+        else:
+            new_seed_path = os.path.join(output_folder, f"new_seed_{idx + 1}.png")
+            current_image.resize((1024, 576)).save(new_seed_path)
 
             print(f"Resized new frame saved as an image at {new_seed_path}")
 
