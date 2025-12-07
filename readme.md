@@ -1,7 +1,10 @@
-# Sample Video  
-https://raw.githubusercontent.com/ShortFormTopic/docs/sample.mp4
 
-# ShortFormTopic
+# ShortFor
+
+https://github.com/user-attachments/assets/997e1048-90a4-4ec8-8e7c-c12646143a5b
+
+mTopic
+
 
 ShortFormTopic is a tooling project for generating short-form videos from Reddit posts and AI-generated stories. It supports two major paths:
 
