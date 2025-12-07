@@ -3,11 +3,10 @@
 
 https://github.com/user-attachments/assets/997e1048-90a4-4ec8-8e7c-c12646143a5b
 
-
+_Sample video generated using the Stable Diffusion and AI interpolation workflow_
 
 
 ShortFormTopic is a tooling project for generating short-form videos from Reddit posts and AI-generated stories. It supports two major paths:
-
 1. **Real-video workflow** – Stitching satisfying/loop videos + captions + TTS.  
 2. **AI-video workflow** – Generating full video clips from Stable Diffusion / Mochi / ComfyUI pipelines, interpolating them with RIFE, upscaling them, and assembling narrative videos with synchronized captions.
 
@@ -26,10 +25,10 @@ This README explains:
 **Purpose:** Produce short vertical videos by combining narration, captions, traditional clips, or fully AI-generated scenes.
 
 **Inputs:**
-- Scraped Reddit posts (video/text)
 - AI-generated stories (Ollama or OpenAI)
 - Local video assets (`data/satisfying_videos/`)
-- AI models / ComfyUI workflows
+- AI Generated Videos, Images and post-processing, ComfyUI workflows
+- AI Voice Synthesis
 
 **Outputs:**
 - Final MP4 short videos (`data/out/`)
@@ -42,7 +41,7 @@ This README explains:
 
 # **Architecture & Workflow (Complete, Including Details From Uploaded Files)**
 
-## **1. Reddit Scraping**
+## **1. Reddit Scraping** (Legacy)
 - `scripts/reddit.py` scrapes text & video posts.
 - Writes `data/reddit_posts.csv`.
 - Downloads Reddit videos to:
@@ -56,7 +55,7 @@ This README explains:
 Story generation is handled by `scripts/llama_generation.py` or `scripts/gpt_generation.py`.
 
 `main.py` randomly chooses:
-- a mode (AITA, AMA, SS)
+- a mode (AITA, AMA, ShortStory)
 - a theme / tone
 - optional source novel or topic
 
