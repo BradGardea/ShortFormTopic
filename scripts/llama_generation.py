@@ -105,7 +105,7 @@ def chat_response(model, system_context, prompt, temperature=0.2, mode="story"):
         return f"Error: {e}"
 
 
-def generate_response_llama(model, system_context, prompt, temperature=0.2, mode="story", seed=False):
+def generate_response(model, system_context, prompt, temperature=0.2, mode="story", seed=False):
     """
     Generate a response from the specified model using the Ollama REST API.
 
@@ -154,12 +154,11 @@ def generate_response_llama(model, system_context, prompt, temperature=0.2, mode
                     "properties": {
                         "title": {"type": "string"},
                         "body": {"type": "string"},
-                        'voice': {'type': 'string'},
                         "hashtags": {"type": "array", "items": {"type": "string"}},
                         "description": {"type": "string"},
                         "prompt": prompt
                     },
-                    "required": ["title", "body", "voice", "hashtags", "description", "prompt"]
+                    "required": ["title", "body", "hashtags", "description", "prompt"]
                 },
                 "stream": False,
             }
@@ -200,7 +199,7 @@ if __name__ == "__main__":
         Using the only the style from the stories you created, make the story controversial and captivating, especially the introduction, ensure characters are adults. Use simple and vulgar language, how a redditor would tell a story.
         """
 
-        story = generate_response_llama(model_name, story_system_context, story_prompt, temperature=0.5, mode="story")
+        story = generate_response(model_name, story_system_context, story_prompt, temperature=0.5, mode="story")
         print(f"Story response: {story}")
 
         formatting_system_context = """You are now a expert filmographer and understander who must provide perfect summaries and extract the actual story while being able to make detailed descriptions of a story in JSON."""
@@ -223,7 +222,7 @@ if __name__ == "__main__":
         ```json
         """
 
-        story = generate_response_llama(model_name, formatting_system_context, formatting_prompt, temperature=0.2, mode="formatted")
+        story = generate_response(model_name, formatting_system_context, formatting_prompt, temperature=0.2, mode="formatted")
         print(f"Formatted response: {story}")
     except Exception as e:
         print(f"An error occurred: {e}")

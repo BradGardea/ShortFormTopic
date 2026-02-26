@@ -5,6 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
+VideoGeneration/
+SFS/
+SVS313/
+data/
+out/
 
 # Distribution / packaging
 .Python

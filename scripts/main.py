@@ -7,11 +7,178 @@ sys.path.insert(0, dname)  # Add parent directory to Python module search path
 os.chdir(dname)
 
 print("Current working dir", os.getcwd())
+import os
+import sys
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(os.path.dirname(abspath))
+sys.path.insert(0, dname)  # Add parent directory to Python module search path
+
+os.chdir(dname)
+
+print("Current working dir", os.getcwd())
 import random
 import logging
 import time
 import threading
 import pandas as pd
+import uuid
+import json
+
+from scripts.reddit import run_scrapers
+from scripts.azure_synth import get_tts
+from scripts.video_generator import create_combined_video_for_post
+from scripts.llama_generation import generate_response, chat_response
+from scripts.ai_video_creation import generate_ai_video_stable_diffusion, interpolate_ai_video
+
+
+
+
+
+modes = {
+    0: "AITA",
+    1: "AMA",
+    2: "SS", # short story
+}
+
+model_name = "llama3.1:8b"
+
+novels = [
+  "Pride and Prejudice",
+  "Sense and Sensibility",
+  "Emma",
+  "Northanger Abbey",
+  "Mansfield Park",
+  "Persuasion",
+  "Twenty Thousand Leagues Under the Sea",
+  "Around the World in Eighty Days",
+  "Journey to the Center of the Earth",
+  "The Mysterious Island",
+  "From the Earth to the Moon",
+  "Moby-Dick; or, The Whale",
+  "Typee",
+  "Omoo",
+  "Billy Budd, Sailor",
+  "The War of the Worlds",
+  "The Time Machine",
+  "The Invisible Man",
+  "The Island of Doctor Moreau",
+  "The First Men in the Moon",
+  "Frankenstein; or, The Modern Prometheus",
+  "Treasure Island",
+  "The Strange Case of Dr. Jekyll and Mr. Hyde",
+  "Jane Eyre",
+  "Wuthering Heights",
+  "Great Expectations",
+  "A Tale of Two Cities",
+  "David Copperfield",
+  "The Adventures of Tom Sawyer",
+  "Adventures of Huckleberry Finn",
+  "The Tell-Tale Heart",
+  "The Fall of the House of Usher",
+  "The Raven",
+  "Dracula",
+  "The Scarlet Letter",
+  "The House of the Seven Gables",
+  "A Christmas Carol in Prose; Being a Ghost Story of Christmas",
+  "Alice's Adventures in Wonderland",
+  "The Adventures of Sherlock Holmes",
+  "Middlemarch",
+  "Little Women; Or, Meg, Jo, Beth, and Amy",
+  "Crime and Punishment",
+  "War and Peace",
+  "The Brothers Karamazov",
+  "Don Quixote",
+  "Ulysses",
+  "The Count of Monte Cristo"
+]
+
+themes = [
+  "Action",
+  "Adventure",
+  "Suspense",
+  "Horror",
+  "Romance",
+  "Mystery",
+  "Science Fiction",
+  "Fantasy",
+  "Historical",
+  "Drama",
+  "Comedy",
+  "Tragedy",
+  "Gothic",
+  "Psychological",
+  "Thriller",
+  "Epic",
+  "Political",
+  "Philosophical",
+  "Satire",
+  "Social Commentary",
+  "Morality",
+  "Survival",
+  "Revenge",
+  "Love",
+  "Family",
+  "Friendship",
+  "War",
+  "Freedom",
+  "Exploration"
+]
+
+topics = [
+  "Relationships",
+  "Family",
+  "Friendship",
+  "Workplace",
+  "School",
+  "Ethics",
+  "Parenting",
+  "Health",
+  "Fitness",
+  "Diet",
+  "Money",
+  "Investments",
+  "Debt",
+  "Mental Health",
+  "Pets",
+  "Hobbies",
+  "Travel",
+  "Cooking",
+  "Technology",
+  "Cars",
+  "Education",
+  "Career Advice",
+  "Legal Issues",
+  "Fashion",
+  "Shopping",
+  "Housing",
+  "Renting",
+  "Home Improvement",
+  "Dating",
+  "Marriage",
+  "Divorce",
+  "Self-Improvement",
+  "Spirituality",
+  "Gaming",
+  "Entertainment",
+  "Books",
+  "Movies",
+  "Music",
+  "Art",
+  "Politics",
+  "Culture",
+  "History",
+  "Science",
+  "Environment",
+  "Climate Change",
+  "Social Media",
+  "Conflict Resolution",
+  "Etiquette",
+  "Events",
+  "Life Choices"
+]
+
+
+
 import uuid
 import json
 
@@ -647,5 +814,20 @@ def create_custom(gen_id):
 if __name__ == "__main__":
 
     main()
-    #create_custom("088c47dc-5afc-4465-8ea4-61ae8b517cda")
-
+    # gen_id = "a0cd0b11-3e8e-4439-8959-bee8698fa727"
+    # path = os.path.join("data", "out", gen_id) 
+    # videos = [file for file in os.listdir(path) if file.endswith(".mp4")]
+    # sorted_videos = sorted(videos, key=lambda x: int(x.split("_")[1].split(".")[0]))
+    # for video in sorted_videos:
+    #     interpolate_ai_video(os.path.join(path, video))
+    # with open(f"data/stories/{gen_id}.json") as f:
+    #     obj = json.load(f)
+    #     full = generate_tts_for_post(obj, tts_folder_name=gen_id)
+    #     #full = (r"D:\Brad\Projects\ShortFormSucker\data\TTS\17d2854d-59bf-444a-a23a-15e762a6d3bd\full.mp3", r"D:\Brad\Projects\ShortFormSucker\data\TTS\17d2854d-59bf-444a-a23a-15e762a6d3bd\full_transcription.srt", "")
+    #     if full != None:
+    #         # Create a combined video for the post
+    #         if (create_combined_video_for_post(obj, full, video_clips_path=f"data/out/{gen_id}/interpolized", gen_id=gen_id) != None):
+    #             logging.info(f"Succesffuly generated post: {obj['title']}")
+    #     else:
+    #         logging.error(
+    #             f"Failed to generate TTS for post: {obj['title']}")

@@ -9,7 +9,6 @@ def get_tts(text, output_dir, output_name):
     headers = {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
-        "xi-api-key": "sk_7b0ca91822258d676b66411b8fb2e2053a373865905adddf"
     }
 
     data = {
