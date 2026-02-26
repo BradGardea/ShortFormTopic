@@ -841,7 +841,7 @@ def combine_audio_and_video(
         # Load audio clips and set up final audio
         combined_audio = AudioFileClip(full_audio_path)
         ding_audio = AudioFileClip("data/sound_effects/ding.mp3").volumex(0.6).set_duration(1.5)
-        background_audio = AudioFileClip("data/sound_effects/background_audio.mp3").volumex(0.2)
+        background_audio = AudioFileClip("data/sound_effects/background_audio.mp3").volumex(0.1)
         total_duration = combined_audio.duration
 
         background_audio_looped = concatenate_audioclips([
@@ -852,7 +852,8 @@ def combine_audio_and_video(
         final_audio = CompositeAudioClip([combined_audio, final_audio])
 
         total_duration = round(final_audio.duration, 2)
-        short_duration = min(total_duration, 60)
+        short_duration = total_duration + 8
+        #short_duration = min(total_duration, 68)
         short_audio_duration = short_duration - 8
 
         if images_path != None and os.path.exists(images_path):
@@ -903,17 +904,17 @@ def combine_audio_and_video(
         stroke_color = "Blue"
         logging.info("Creating text clips")
 
-        full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=45, width=1000, target_text_duration=1.5)
+        #full_text_clips = create_text_clips(srt_input=full_timings, audio_end=total_duration, text_color=text_color, stroke_color=stroke_color, max_length=total_duration, font_size=45, width=1000, target_text_duration=1.5)
         short_text_clips = create_text_clips(srt_input=full_timings, audio_end=short_audio_duration, text_color=text_color, stroke_color=stroke_color, max_length=short_audio_duration, font_size=35, target_text_duration=0.4)
        
         logging.info("Text clips completed")
 
 
-        full_text_overlay = CompositeVideoClip(full_text_clips).set_position(("center", "bottom"))        
-        full_composite = CompositeVideoClip([full_video, full_text_overlay], use_bgclip=True).set_duration(total_duration)
-        full_composite = full_composite.set_audio(final_audio)
-        full_composite.write_videofile(output_video, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', threads=24, fps=60, remove_temp=True)
-        logging.info(f"Full video saved at {output_video}")
+        # full_text_overlay = CompositeVideoClip(full_text_clips).set_position(("center", "bottom"))        
+        # full_composite = CompositeVideoClip([full_video, full_text_overlay], use_bgclip=True).set_duration(total_duration)
+        # full_composite = full_composite.set_audio(final_audio)
+        # full_composite.write_videofile(output_video, codec='libx264', audio_codec='aac', temp_audiofile='temp-audio.m4a', threads=24, fps=60, remove_temp=True)
+        # logging.info(f"Full video saved at {output_video}")
 
         short_text_overlay = CompositeVideoClip(short_text_clips).set_position(("center", "center"))
         short_composite = CompositeVideoClip([cropped_video, short_text_overlay], use_bgclip=True)

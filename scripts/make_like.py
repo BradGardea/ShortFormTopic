@@ -27,7 +27,7 @@ from scripts.azure_synth import get_tts
 
 # movieclip.write_videofile("data/like_part_2.mp4", codec="libx264", audio_codec="aac", fps=30)
 
-text = "Check below for part 2! If you enjoyed this kind of content, please like and subscribe for more, it really helps us out. THANK YOU for watching!!"
+text = "If you enjoyed this kind of content, please like and subscribe for more, it really helps us out. THANK YOU for watching!!"
 
 audio_path, _ = get_tts(text=text, output_dir="data", output_name="part2")
 

@@ -207,8 +207,11 @@ def generate_ai_video_mochi(story_obj, process_id, full_comfy_path=r"D:\utils\Co
 
 def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=None, images_only=False, video_fps=2, num_frames=14):
  
+    gc.collect()
+    torch.cuda.empty_cache()
+    
     parts_obj = story_obj.get("prompt", {}).get("parts", {})
-    prompts = [parts_obj.get(f"part{i}", "") + "detailed, very realistic 8k." for i in range(1, len(parts_obj) + 1)]
+    prompts = [parts_obj.get(f"part{i}", "")[: -2] + " vffery Realistic, very realistic 8k." for i in range(1, len(parts_obj) + 1)]
     if prompts[0].strip() == "":    
         prompts = ["Astronaut in a jungle, cold color palette, muted colors, detailed, realistic, 8k",
         "Astronaut exploring an underwater city, bioluminescent lights, futuristic, realistic, 8k",
@@ -229,6 +232,9 @@ def generate_ai_video_stable_diffusion(story_obj, process_id, seed_image_path=No
         use_safetensors=True,
         device_map = 'balanced'
     )
+
+    gc.collect()
+    torch.cuda.empty_cache()
 
     if images_only:
         os.makedirs(os.path.join(output_folder, "seeds"), exist_ok=True)

@@ -30,7 +30,6 @@ from scripts.ai_video_creation import generate_ai_video_stable_diffusion, interp
 modes = {
     0: "AITA",
     1: "AMA",
-    2: "SS", # short story
 }
 
 # model_name = "gurubot/llama3-guru-uncensored:latest"
@@ -336,9 +335,7 @@ def get_story(mode):
                 if use_novel:
                     story_prompt = f"""
                     Using only the structure and style of the stories YOU created create a new story with a {theme} theme, based on the story of {novel}.
-                    
                     The story should be written to be {semantic} and captivating with a VERY interesting title and first line to captiavte the reader, use vulgar language and expressions such as "fuck, shit, bitch etc." throughout the story for emphasis. Ensure the material does not violate any laws.
-                    
                     Only respond with the AITA title and the story itself as 1 block of text. Your response should be at least 300 words.
 
                     For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
@@ -346,10 +343,10 @@ def get_story(mode):
                     This story must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
 
                     Use simple language in the voice of the character you are portraying.
-
-                    The title must be controversial and captivating.
-
+                    The title (QUESTION TO THE READERS) must be controversial and captivating.
                     You should NOT be answering the AITA question, you are creating a situation for the reader to answer. Ensure a complete and relativley lengthy story is generated with no gaps.
+                    
+                    Do not bore the reader with too much detail, focus on the progression and substance of the story.
                     """
                 else:
                     story_prompt = f"""
@@ -358,16 +355,14 @@ def get_story(mode):
                     The story should be written to be {semantic} and captivating with a VERY interesting title and first line, use vulgar language and expressions such as "fuck, shit, bitch etc." throughout the story for emphasis. Ensure the material does not violate any laws.
                     
                     Only respond with the AITA title and the story itself as 1 block of text. Your response should be at least 300 words.
-
                     For example: "AITA for fucking up my best friends wedding because he stole my ex? I (25m) etc..." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
-
+                    
                     This story must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
-
                     Use simple language in the voice of the character you are portraying.
-
-                    The title must be controversial and captivating.
-
+                    The title (QUESTION TO THE READERS) must be controversial and captivating.
                     You should NOT be answering the AITA question, you are creating a situation for the reader to answer. Ensure a complete and relativley lengthy story is generated with no gaps.
+                    
+                    Do not bore the reader with too much detail, focus on the progression and substance of the story.
                     """
 
                 obj = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -382,28 +377,58 @@ def get_story(mode):
                 return -1
     elif modes[mode] == "AMA":
         try:
+
             story_system_context = f"""       
-            You are now an expert about the novel {novel}, you are capable of answering any question about {topic}. Your expertise shines through storytelling and vivid imagination, blending the theme of {theme} into your responses. You generate the most intruiging and meaningful questions and answers possible. You use explicit language throughout your story to shock readers.
+            You are now someone who is able to answer questions about their experience regarding anything. Here is a question and answer you created in the past:
+
+            "Obese people of Reddit, what is something non-obese people don't understand, or can't understand?
+            The guilt that comes when you’re seen eating anything at all.
+
+            The “aww good for you!” if you’re seen eating a salad because the only possible reason a fat dude would eat a salad is to lose weight.
+
+            The existential dread every time you get a random pain in your chest or stitch in your side and think that this could finally be the heart attack.
+
+            The fact that you can go days or weeks at a time without really feeling bad about being fat but then all of a sudden one day it’s all you can notice about yourself.
+
+            Summer fucking sucks. It’s too hot anyway, but being fat makes it hotter. And then you get worried that — despite having perfectly good if not over the top hygiene — maybe you’re starting to have “fat guy smell.”
+
+            Edit: also, the unsolicited advice from incredibly well-intentioned people that don’t think we haven’t heard it all already or don’t know it already. Logic brain vs emotional brain is so misunderstood.
+            "
+
+            and
+
+            "People of Reddit - what are some of your unexplainable and creepy experiences? (SERIOUS)
+            
+            Only had one that was truly beyond for me. I was 19 at the time. Buddy of mine was on leave in the USMC visiting.
+
+            Going to sleep I let him sleep in my bed and I took the couch. The couch was one of those L shaped sectionals. The short part of the L was at my feet and there was an ottoman in front of the couch in that little area.
+
+            Had one of those weird sleeps where I woke up before opening my eyes. When I opened them, I saw a creature standing right next to the ottoman. Like within arms length. There was a light on in the hallway so it was like a silhouette from the light behind it. Not enough light from the streetlight to make it super clear from the window behind me.
+
+            It was about 3-4 feet tall. All I can remember from its features is it had super greasy hair covering most of its face. I saw it as soon as I opened my eyes, and I just closed my eyes back shut and turned around to face the back of the couch/window. I don’t know how to describe it but it was like the moment I saw it, my entire body was filled with terror/dread.
+
+            As soon as I turned around I heard like a loud whisper in my ear/thoughts, “I saw you see me, don’t act like you didn’t”. Even more terrified. I just stayed silent, didn’t move, and basically was praying until I eventually fell asleep. At some point I heard my buddy wake up and use the bathroom and lay back down.
+
+            I probably would have forgotten about it except the next morning when eating breakfast, my friend mentioned how he woke up in the middle of the night to use the bathroom and felt like the house was haunted. Gave me the heeby-jeebies.
+
+            I’ve had sleep paralysis, lucid dreams, false awaken dreams and this wasn’t like any of those. The only truly supernatural thing I ever saw that I couldn’t explain away."
+            
             """
-            
+         
             story_prompt = f"""
-            In the voice of the character from the novel you are from, create a controversial question that the character should be able to answer.
-            Answer this question question in a WILD way, but make sure it makes sense. Ensure that it is about the topic of which you are an expert in that should be written to be {semantic} and interesting. Use vulgar language and expressions such as "fuck, shit, bitch etc.". Ensure the material does not violate any laws.
+
+            Create a thought provoking and genuinley interesting question asking people about their experience about something.
+            for example: "People who have been cheated on, what happend?" or ""What's a decision you regretted the most in your life and what happend?". The questions should be thought provoking and instigate controversey in the people reading them.
             
-            An example on how this could look would be:
+            Once you have this question, create an answer to this question by providing an anecdote or just general information about it. The answer can be humorous, sadening, happy etc. chose an emotion that would captivate readers.
+            The answer to this question should not focus too much on descriptive details, focus on the story itself, it MUST make sense and have a clear direction. 
+            You can use vulgar language like "fuck, shit, bitch etc." for emphasis when needed.
 
-            "People who have been cheated on, what happend?
-            Well, i didnt really wanna talk about this but it's something that has been wheighing on my mind..." THIS IS ONLY AN EXAMPLE 
+            The answer to the question does not need to be too lengthy. However if the answer is very short, you can create another answer to the question from another persons perspective.
 
+            Look at the structure and style of the previous stories you created for reference but do NOT copy its content.
 
-            Make sure that the question and answer are morally ambiguous and leaves the readers SHOCKED. This needs to be captivating and make sense.
-            Use vulgar language and expressions such as "fuck, shit, bitch etc." are used throught the story for emphasis. Ensure the material does not violate any laws.
-
-            Only respond with the question and the answer to the question as 1 continuous block of text.
-            
-            Use simple language in the voice of the character you are portraying. Ensure a complete story is generated with no gaps.
-
-            The title and first line must be controversial and captivating and related to the answer. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
+            Return your response as 1 continuous block of text with the question and the answer(s) written as 1 big paragraph.
             """
 
             obj = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -415,6 +440,7 @@ def get_story(mode):
         except Exception as e:
             logging.error(f"An error occurred during llm generation: {e}")
             return -1
+    
     elif modes[mode] == "SS":
         try:
             story_system_context = f"""       
@@ -428,14 +454,13 @@ def get_story(mode):
             Use vulgar language and expressions such as "fuck, shit, bitch etc." are used throught the story for emphasis. Ensure the material does not violate any laws.
             
             Only respond with the title of the story and its content as 1 continuous block of text. The story should be at least 300 words.
-            
             For example: "How I fucked up my life in one simple move. Here we are, I am a girl from the country etc...." THIS EXAMPLE ONLY REPRESENTS HOW AN INTRO COULD LOOK. DO NOT USE IT IN YOUR RESPONSE.
 
             This story must be incredibly intersting, controversial, exciting and retain the attention of readers at all stages. You must start the story with a controversial hook.
-
             Use simple language in the voice of the character you are portraying.
-
-            The title must be jaw dropping. Same with the first line, it must be controversial and captivating. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
+            The title doesn't need to be a traditional title, it can be a cliffhanger from later in the story to reel the reader in. Same with the first line, it must be controversial and captivating. Ensure a complete and relativley lengthy story that is actually interesting is generated with no gaps.
+            
+            Make sure the story has a begining, build up, explosive climax and then a meaningful conclusion. Do not bore the reader with too much detail, focus on the progression and substance of the story.
             """
 
             obj = generate_response(model_name, story_system_context, story_prompt, temperature=0.6, mode="story")
@@ -455,7 +480,7 @@ def get_story(mode):
     formatting_prompt = """
     %s
 
-    From the story above, extract the title and body.
+    From the story above, extract the title and body. The title can also be a question which prompts the answer (which is the body). There can also be more than 1 answer to the question, they should still be contained within the body.
 
     Your response should only set the title and the ACTUAL STORY. Remove any content from the START of the body that clearly does not read as part of the story from a characters perspective.
 
@@ -490,7 +515,7 @@ def get_story(mode):
     "seed" must be a small sized prompt that will be used to generate an image that will represent the art style and appearance of the characters in the story. 
     each of the parts must be a small sized prompt that explains very simply what is going on in the scene in a still frame, it should include characters (only decsription of them) and an environment.
     There are 24 parts in total so each of these images must illustrate 1/24 of the story.
-    "body" should be the content from the story from the json object you created. Only set this value to the story itself.
+    "body" should be the content from the story from the json object you created. Only set this value to be the story/answer(s) itself.
     "style" is the art style to use
     "color" is the color pallate of the story
     "description" should be a medium length description of the story. 

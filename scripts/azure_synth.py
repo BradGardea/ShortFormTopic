@@ -60,7 +60,7 @@ def get_tts(text, output_dir, output_name, voice_name='AvaMultilingual', style="
         xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'>
         <voice name='{voice_name}'>
             <mstts:express-as style='{style}' styledegree='{degree}'>
-                <prosody rate="1.15">
+                <prosody rate="1.1">
                     {text}
                 </prosody>
             </mstts:express-as>
