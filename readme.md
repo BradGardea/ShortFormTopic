@@ -7,37 +7,40 @@ _Sample video generated using the Stable Diffusion and AI interpolation workflow
 
 <div align="center">
 
-<img src="docs/seed/0.png" width="18%">
-<img src="docs/seed/1.png" width="18%">
-<img src="docs/seed/2.png" width="18%">
-<img src="docs/seed/3.png" width="18%">
-<img src="docs/seed/4.png" width="18%">
+<img src="docs/seeds/0.png" width="18%">
+<img src="docs/seeds/1.png" width="18%">
+<img src="docs/seeds/2.png" width="18%">
+<img src="docs/seeds/3.png" width="18%">
+<img src="docs/seeds/4.png" width="18%">
 
-<img src="docs/seed/5.png" width="18%">
-<img src="docs/seed/6.png" width="18%">
-<img src="docs/seed/7.png" width="18%">
-<img src="docs/seed/8.png" width="18%">
-<img src="docs/seed/9.png" width="18%">
+<img src="docs/seeds/5.png" width="18%">
+<img src="docs/seeds/6.png" width="18%">
+<img src="docs/seeds/7.png" width="18%">
+<img src="docs/seeds/8.png" width="18%">
+<img src="docs/seeds/9.png" width="18%">
 
-<img src="docs/seed/10.png" width="18%">
-<img src="docs/seed/11.png" width="18%">
-<img src="docs/seed/12.png" width="18%">
-<img src="docs/seed/13.png" width="18%">
-<img src="docs/seed/14.png" width="18%">
+<img src="docs/seeds/10.png" width="18%">
+<img src="docs/seeds/11.png" width="18%">
+<img src="docs/seeds/12.png" width="18%">
+<img src="docs/seeds/13.png" width="18%">
+<img src="docs/seeds/14.png" width="18%">
 
-<img src="docs/seed/15.png" width="18%">
-<img src="docs/seed/16.png" width="18%">
-<img src="docs/seed/17.png" width="18%">
-<img src="docs/seed/18.png" width="18%">
-<img src="docs/seed/19.png" width="18%">
+<img src="docs/seeds/15.png" width="18%">
+<img src="docs/seeds/16.png" width="18%">
+<img src="docs/seeds/17.png" width="18%">
+<img src="docs/seeds/18.png" width="18%">
+<img src="docs/seeds/19.png" width="18%">
 
-<img src="docs/seed/20.png" width="18%">
-<img src="docs/seed/21.png" width="18%">
-<img src="docs/seed/22.png" width="18%">
-<img src="docs/seed/23.png" width="18%">
-<img src="docs/seed/24.png" width="18%">
+<img src="docs/seeds/20.png" width="18%">
+<img src="docs/seeds/21.png" width="18%">
+<img src="docs/seeds/22.png" width="18%">
+<img src="docs/seeds/23.png" width="18%">
+<img src="docs/seeds/24.png" width="18%">
 
 </div>
+
+_Seeds for a video generated using the Stable Diffusion and AI interpolation workflow_
+
 
 ShortFormTopic is a tooling project for generating short-form videos from Reddit posts and AI-generated stories. It supports two major paths:
 1. **Real-video workflow** – Stitching satisfying/loop videos + captions + TTS.  
