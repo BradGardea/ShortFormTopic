@@ -5,6 +5,39 @@ https://github.com/user-attachments/assets/997e1048-90a4-4ec8-8e7c-c12646143a5b
 
 _Sample video generated using the Stable Diffusion and AI interpolation workflow_
 
+<div align="center">
+
+<img src="docs/seed/0.png" width="18%">
+<img src="docs/seed/1.png" width="18%">
+<img src="docs/seed/2.png" width="18%">
+<img src="docs/seed/3.png" width="18%">
+<img src="docs/seed/4.png" width="18%">
+
+<img src="docs/seed/5.png" width="18%">
+<img src="docs/seed/6.png" width="18%">
+<img src="docs/seed/7.png" width="18%">
+<img src="docs/seed/8.png" width="18%">
+<img src="docs/seed/9.png" width="18%">
+
+<img src="docs/seed/10.png" width="18%">
+<img src="docs/seed/11.png" width="18%">
+<img src="docs/seed/12.png" width="18%">
+<img src="docs/seed/13.png" width="18%">
+<img src="docs/seed/14.png" width="18%">
+
+<img src="docs/seed/15.png" width="18%">
+<img src="docs/seed/16.png" width="18%">
+<img src="docs/seed/17.png" width="18%">
+<img src="docs/seed/18.png" width="18%">
+<img src="docs/seed/19.png" width="18%">
+
+<img src="docs/seed/20.png" width="18%">
+<img src="docs/seed/21.png" width="18%">
+<img src="docs/seed/22.png" width="18%">
+<img src="docs/seed/23.png" width="18%">
+<img src="docs/seed/24.png" width="18%">
+
+</div>
 
 ShortFormTopic is a tooling project for generating short-form videos from Reddit posts and AI-generated stories. It supports two major paths:
 1. **Real-video workflow** – Stitching satisfying/loop videos + captions + TTS.  
